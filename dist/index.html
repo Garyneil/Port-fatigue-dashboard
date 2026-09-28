@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#06101d">
+  <title>基于黎曼流形与跨被试校准的码头作业人员疲劳度检测</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23071322'/%3E%3Cpath d='M7 22V11h4v11m5 0V7h4v15m5 0v-8h-4' fill='none' stroke='%233ce8d0' stroke-width='2.4'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 44 44"><path d="M8 31V16h6v15M20 31V10h6v21M32 31V20h5"/><path class="wave" d="M5 35c5-3 9 3 14 0s9 3 14 0 6 0 7 0"/></svg>
+      </div>
+      <div class="title-block">
+        <div class="eyebrow">PORT COGNITIVE SAFETY · PILOT SYSTEM</div>
+        <h1>基于黎曼流形与跨被试校准的码头作业人员疲劳度检测</h1>
+      </div>
+      <div class="top-status">
+        <div class="system-online"><span class="status-dot"></span>仿真系统在线</div>
+        <div class="time-box"><strong id="clock">--:--:--</strong><span id="date">----/--/--</span></div>
+      </div>
+    </header>
+
+    <main class="dashboard-grid">
+      <section class="monitor-panel panel" aria-labelledby="monitor-title">
+        <div class="panel-heading">
+          <div>
+            <span class="section-index">01</span>
+            <div><h2 id="monitor-title">实时作业监控</h2><p>REMOTE CRANE OPERATION · BERTH C-03</p></div>
+          </div>
+          <div class="live-chip"><span></span>LIVE</div>
+        </div>
+
+        <div class="camera-frame">
+          <canvas id="portCanvas" aria-label="仿真的码头远程作业监控画面"></canvas>
+          <div class="camera-top-overlay">
+            <span>CAM 07 · 岸桥作业区</span><span>1080P · 25 FPS</span>
+          </div>
+          <div class="scan-line" aria-hidden="true"></div>
+          <div class="focus-box focus-crane"><span>QC-04</span></div>
+          <div class="focus-box focus-truck"><span>AGV-12</span></div>
+          <div class="camera-bottom-overlay">
+            <div><span class="tiny-dot cyan"></span>视觉检测正常</div>
+            <div><span class="tiny-dot amber"></span>作业目标 02</div>
+            <time id="cameraTime">--:--:--.---</time>
+          </div>
+        </div>
+
+        <div class="monitor-footer">
+          <article class="operator-card">
+            <div class="operator-avatar" aria-hidden="true"><span></span></div>
+            <div><p>当前远程操控员</p><strong>OP-017 · 模拟席位 A</strong></div>
+            <div class="tag neutral">跨被试校准已加载</div>
+          </article>
+          <article class="metric-card"><p>连续作业时长</p><strong id="workDuration">01:42:18</strong><span>本班次</span></article>
+          <article class="metric-card"><p>EEG 数据质量</p><strong><span id="signalQuality">94</span><small>%</small></strong><span>32 通道 · 250 Hz</span></article>
+          <article class="metric-card"><p>异常感知反应</p><strong><span id="responseTime">612</span><small> ms</small></strong><span>近 5 次均值</span></article>
+        </div>
+      </section>
+
+      <aside class="decision-column" aria-label="疲劳预警与黎曼流形标定">
+        <section class="alert-panel panel" aria-labelledby="alert-title">
+          <div class="panel-heading compact">
+            <div><span class="section-index">02</span><div><h2 id="alert-title">疲劳预警</h2><p>FATIGUE EARLY WARNING</p></div></div>
+            <span class="sim-badge">SIMULATION</span>
+          </div>
+
+          <div class="gauge-row">
+            <div class="risk-gauge" id="riskGauge" style="--risk:68">
+              <div class="gauge-inner"><strong id="riskScore">68</strong><span>/ 100</span><small>疲劳风险</small></div>
+            </div>
+            <div class="risk-copy">
+              <p>当前判定</p>
+              <strong id="riskLabel">中高风险</strong>
+              <span id="riskAdvice">建议加强观察</span>
+            </div>
+          </div>
+
+          <div class="evidence-list">
+            <div class="evidence-item"><div><span>注意稳定度</span><b id="attentionValue">42%</b></div><div class="mini-track"><i id="attentionBar" style="width:42%"></i></div><small>越低表示注意波动越明显</small></div>
+            <div class="evidence-item"><div><span>流形偏离度 <em>d<sub>R</sub></em></span><b id="distanceValue">0.74</b></div><div class="mini-track"><i id="distanceBar" style="width:74%"></i></div><small>当前协方差到清醒参考中心的距离</small></div>
+            <div class="evidence-item"><div><span>风险持续时间</span><b id="durationValue">26 s</b></div><div class="mini-track amber"><i id="durationBar" style="width:52%"></i></div><small>超过边界后的连续累积时间</small></div>
+          </div>
+
+          <div class="decision-strip" id="decisionStrip">
+            <div class="decision-icon">!</div>
+            <div><span>系统决策</span><strong id="decisionText">持续观察 · 尚未触发交班预警</strong></div>
+          </div>
+        </section>
+
+        <section class="manifold-panel panel" aria-labelledby="manifold-title">
+          <div class="panel-heading compact manifold-heading">
+            <div><span class="section-index">03</span><div><h2 id="manifold-title">黎曼流形证据边界与高风险区间标定</h2><p>RIEMANNIAN EVIDENCE BOUNDARY</p></div></div>
+          </div>
+
+          <div class="chart-wrap">
+            <svg id="manifoldChart" viewBox="0 0 520 270" role="img" aria-label="黎曼距离与流形速度构成的风险分区图">
+              <defs>
+                <linearGradient id="safeZone" x1="0" x2="1"><stop offset="0" stop-color="#0cc8d8" stop-opacity=".18"/><stop offset="1" stop-color="#0cc8d8" stop-opacity=".03"/></linearGradient>
+                <linearGradient id="warnZone" x1="0" x2="1"><stop offset="0" stop-color="#ffbc55" stop-opacity=".06"/><stop offset="1" stop-color="#ffbc55" stop-opacity=".2"/></linearGradient>
+                <linearGradient id="riskZone" x1="0" x2="1"><stop offset="0" stop-color="#ff6a5f" stop-opacity=".09"/><stop offset="1" stop-color="#ff3f55" stop-opacity=".28"/></linearGradient>
+                <filter id="pointGlow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+              </defs>
+              <g class="grid-lines"><path d="M54 34V224M54 224H496"/><path d="M54 176H496M54 128H496M54 80H496"/><path d="M142 34V224M230 34V224M318 34V224M406 34V224"/></g>
+              <path class="safe-fill" d="M54 224V34H244c22 40 36 86 48 190Z" fill="url(#safeZone)"/>
+              <path class="warn-fill" d="M244 34H361c16 54 31 116 39 190H292c-12-104-26-150-48-190Z" fill="url(#warnZone)"/>
+              <path class="risk-fill" d="M361 34H496V224h-96c-8-74-23-136-39-190Z" fill="url(#riskZone)"/>
+              <path class="boundary-line" d="M244 34c22 40 36 86 48 190"/><path class="boundary-line red" d="M361 34c16 54 31 116 39 190"/>
+              <g class="historical-points" id="historicalPoints"></g>
+              <g id="currentPoint" transform="translate(365 130)" filter="url(#pointGlow)"><circle class="pulse" r="16"/><circle class="point" r="6"/><path d="M0-19V-10M0 10V19M-19 0H-10M10 0H19"/></g>
+              <g class="axis-labels"><text x="52" y="245">0.0</text><text x="134" y="245">0.2</text><text x="222" y="245">0.4</text><text x="310" y="245">0.6</text><text x="398" y="245">0.8</text><text x="486" y="245">1.0</text><text x="275" y="266">黎曼距离 d<tspan baseline-shift="sub" font-size="9">R</tspan> →</text><text transform="translate(18 170) rotate(-90)">流形速度 v<tspan baseline-shift="sub" font-size="9">R</tspan> →</text></g>
+              <g class="zone-labels"><text x="100" y="56">正常域</text><text x="278" y="56">预警域</text><text x="409" y="56">高风险域</text></g>
+            </svg>
+          </div>
+
+          <div class="boundary-legend">
+            <div><span class="legend-mark safe"></span><p><strong>正常域</strong><small>d<sub>R</sub> &lt; 0.62</small></p></div>
+            <div><span class="legend-mark warn"></span><p><strong>预警域</strong><small>0.62 ≤ d<sub>R</sub> &lt; 0.86</small></p></div>
+            <div><span class="legend-mark risk"></span><p><strong>高风险域</strong><small>d<sub>R</sub> ≥ 0.86 且持续</small></p></div>
+          </div>
+          <p class="chart-note"><span>i</span> d<sub>R</sub>：EEG 协方差矩阵与清醒参考中心的黎曼距离；阈值为仿真标定值，仅用于界面演示。</p>
+        </section>
+      </aside>
+    </main>
+
+    <footer class="footerbar"><span><i></i>EEG STREAM CONNECTED</span><span>参考模型库：GROUP-RPA-v0.3</span><span>数据模式：仿真回放</span><span>刷新周期：2 s</span></footer>
+  </div>
+  <script src="./app.js"></script>
+</body>
+</html>
