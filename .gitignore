@@ -1,4 +1,9 @@
 site-package.tar.gz
 .DS_Store
 Thumbs.db
+__pycache__/
+*.py[cod]
+*.mat
+*.npy
+operator_input.npz
 

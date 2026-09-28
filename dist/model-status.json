@@ -1,0 +1,12 @@
+{
+  "model": "SEED-VIG-RA-TLR-v1.0",
+  "status": "trained-offline",
+  "frontend_input": "simulation",
+  "method": "Riemannian alignment + tangent-space logistic regression",
+  "training_samples": 4566,
+  "training_subjects": 12,
+  "loso_balanced_accuracy_mean": 0.8914486624,
+  "loso_roc_auc_mean": 0.9432841184,
+  "deployment_ready": false,
+  "note": "Awaiting port-operator EEG calibration and external validation."
+}

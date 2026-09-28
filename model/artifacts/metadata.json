@@ -1,0 +1,54 @@
+{
+  "model_version": "seed-vig-ra-tangent-lr-v1.0.0",
+  "created_utc": "2026-09-28T16:03:42.529453+00:00",
+  "method": "subject-wise Riemannian alignment + identity tangent space + standardized logistic regression",
+  "dataset": "Extracted SEED-VIG, Figshare 26104987 v1",
+  "dataset_sha256": "e74ab8452f174b4081eebbb395e556767aac04790121933c5de123e444bc5ab7",
+  "n_subjects": 12,
+  "subject_ids": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+  ],
+  "n_epochs": 4566,
+  "class_counts": {
+    "alert_0": 2283,
+    "drowsy_1": 2283
+  },
+  "input": {
+    "channels": 17,
+    "samples_per_epoch": 384,
+    "sample_rate_hz": 128,
+    "window_seconds": 3.0
+  },
+  "validation": {
+    "protocol": "leave-one-subject-out",
+    "alignment": "unlabeled full held-out-subject center (transductive offline estimate)",
+    "mean": {
+      "accuracy": 0.8914486623940938,
+      "balanced_accuracy": 0.8914486623940938,
+      "f1": 0.8918785928484825,
+      "roc_auc": 0.9432841183689774
+    },
+    "std_sample": {
+      "accuracy": 0.05308611264004604,
+      "balanced_accuracy": 0.053086112640046056,
+      "f1": 0.054477686050116186,
+      "roc_auc": 0.043540905991297445
+    }
+  },
+  "deployment_contract": {
+    "personal_calibration": "Required: estimate an unlabeled Riemannian center from recent baseline epochs.",
+    "output": "Per-window drowsiness probability; temporal smoothing and alarm hysteresis are external decision-layer responsibilities.",
+    "warning": "Research prototype only. Not validated for port safety decisions."
+  }
+}
