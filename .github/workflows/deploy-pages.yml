@@ -6,7 +6,7 @@ on:
     paths:
       - "dist/**"
       - ".github/workflows/deploy-pages.yml"
-  workflow_dispatch:
+  workflow_dispatch: # Allow manual redeployment from the Actions tab.
 
 permissions:
   contents: read
