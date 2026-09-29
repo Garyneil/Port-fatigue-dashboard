@@ -35,11 +35,27 @@
         </div>
 
         <div class="camera-frame">
-          <img class="port-feed" src="./assets/port-cctv-realistic.png" alt="仿真的现代集装箱码头岸桥与无人集卡监控画面">
+          <div class="scene-stage" role="img" aria-label="俯视集装箱码头动态监控：海面波纹流动，岸桥沿码头轻微横移并产生前后景深变化">
+            <img class="scene-layer scene-bg" src="./assets/port-aerial-clean-v1.png" alt="">
+            <div class="water-motion" aria-hidden="true">
+              <img class="scene-layer water-texture" src="./assets/port-aerial-clean-v1.png" alt="">
+            </div>
+            <img class="scene-layer crane-layer crane-shadow" src="./assets/port-crane-layer-v1.png" alt="" aria-hidden="true">
+            <img class="scene-layer crane-layer crane-foreground" src="./assets/port-crane-layer-v1.png" alt="" aria-hidden="true">
+          </div>
+          <svg class="water-filter" aria-hidden="true">
+            <filter id="waterRippleFilter" x="-8%" y="-8%" width="116%" height="116%">
+              <feTurbulence type="fractalNoise" baseFrequency="0.008 0.042" numOctaves="2" seed="7" result="noise">
+                <animate attributeName="baseFrequency" dur="5s" values="0.008 0.042;0.012 0.055;0.007 0.038;0.008 0.042" repeatCount="indefinite"/>
+              </feTurbulence>
+              <feDisplacementMap in="SourceGraphic" in2="noise" scale="7" xChannelSelector="R" yChannelSelector="B"/>
+            </filter>
+          </svg>
           <div class="feed-color-grade" aria-hidden="true"></div>
           <div class="camera-top-overlay">
-            <span>CAM 07 · 岸桥作业区</span><span>4K · 25 FPS · AI DETECTION</span>
+            <span>CAM 07 · 岸桥作业区</span><span>4K · 25 FPS · 5S LOOP</span>
           </div>
+          <div class="motion-chip"><span></span>WATER + CRANE MOTION</div>
           <div class="scan-line" aria-hidden="true"></div>
           <div class="focus-box focus-crane"><span>QC-04</span></div>
           <div class="focus-box focus-truck"><span>AGV-12</span></div>
