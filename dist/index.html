@@ -86,9 +86,26 @@
             </div>
           </div>
 
+          <div class="modality-status" aria-label="疲劳评估模态状态">
+            <div class="modality-status-heading">
+              <span>评估模态</span>
+              <small>点击切换仿真设备状态</small>
+            </div>
+            <div class="modality-controls">
+              <button class="modality-chip is-active" id="cameraToggle" type="button" aria-pressed="true">
+                <span class="modality-dot"></span><span>操作员摄像头</span><strong id="cameraStatus">已开启</strong>
+              </button>
+              <button class="modality-chip is-active" id="perclosToggle" type="button" aria-pressed="true">
+                <span class="modality-dot"></span><span>PERCLOS</span><strong id="perclosStatus">已启用</strong>
+              </button>
+            </div>
+            <p id="fusionStatus">当前采用 EEG 黎曼证据 + PERCLOS 多模态融合评估</p>
+          </div>
+
           <div class="evidence-list">
             <div class="evidence-item"><div><span>注意稳定度</span><b id="attentionValue">42%</b></div><div class="mini-track"><i id="attentionBar" style="width:42%"></i></div><small>越低表示注意波动越明显</small></div>
             <div class="evidence-item"><div><span>流形偏离度 <em>d<sub>R</sub></em></span><b id="distanceValue">0.74</b></div><div class="mini-track"><i id="distanceBar" style="width:74%"></i></div><small>当前协方差到清醒参考中心的距离</small></div>
+            <div class="evidence-item" id="perclosEvidence"><div><span>单位时间闭眼率 <em>PERCLOS</em></span><b id="perclosValue">24%</b></div><div class="mini-track perclos-track"><i id="perclosBar" style="width:24%"></i></div><small id="perclosNote">操作员摄像头可用，当前参与风险融合</small></div>
             <div class="evidence-item"><div><span>风险持续时间</span><b id="durationValue">26 s</b></div><div class="mini-track amber"><i id="durationBar" style="width:52%"></i></div><small>超过边界后的连续累积时间</small></div>
           </div>
 
