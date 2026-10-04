@@ -53,7 +53,9 @@ def register_fonts() -> None:
 
 
 class ArchitectureDiagram(Flowable):
-    def __init__(self, width: float = 174 * mm, height: float = 69 * mm):
+    """Four-stage schematic for the six-factor, quality-gated risk model."""
+
+    def __init__(self, width: float = 174 * mm, height: float = 91 * mm):
         super().__init__()
         self.width = width
         self.height = height
@@ -61,57 +63,156 @@ class ArchitectureDiagram(Flowable):
     def wrap(self, avail_width, avail_height):
         return min(self.width, avail_width), self.height
 
-    def draw_box(self, c, x, y, w, h, fill, title, subtitle):
+    def draw_box(self, c, x, y, w, h, fill, accent, title, factors, badge=None):
         c.setFillColor(fill)
-        c.setStrokeColor(colors.Color(fill.red * .75, fill.green * .75, fill.blue * .75))
-        c.roundRect(x, y, w, h, 4, fill=1, stroke=1)
+        c.setStrokeColor(accent)
+        c.setLineWidth(0.8)
+        c.roundRect(x, y, w, h, 5, fill=1, stroke=1)
+        c.setFillColor(accent)
+        c.roundRect(x, y + h - 6, w, 6, 5, fill=1, stroke=0)
         c.setFillColor(NAVY)
-        c.setFont("YaHei-Bold", 8)
-        c.drawCentredString(x + w / 2, y + h - 12, title)
-        c.setFillColor(GREY_2)
-        c.setFont("YaHei", 6.5)
-        lines = subtitle.split("|")
-        for i, line in enumerate(lines):
-            c.drawCentredString(x + w / 2, y + h - 24 - i * 9, line)
+        c.setFont("YaHei-Bold", 8.6)
+        c.drawString(x + 4 * mm, y + h - 13, title)
+        if badge:
+            badge_w = c.stringWidth(badge, "YaHei", 5.8) + 4 * mm
+            c.setFillColor(WHITE)
+            c.setStrokeColor(accent)
+            c.roundRect(x + w - badge_w - 3 * mm, y + h - 17, badge_w, 8, 3, fill=1, stroke=1)
+            c.setFillColor(accent)
+            c.setFont("YaHei", 5.8)
+            c.drawCentredString(x + w - badge_w / 2 - 3 * mm, y + h - 14.5, badge)
+        chip_h = 8 * mm
+        chip_gap = 2.2 * mm
+        chip_w = (w - 10 * mm - chip_gap) / 2
+        chip_y = y + 4 * mm
+        for idx, (symbol, label) in enumerate(factors):
+            chip_x = x + 5 * mm + idx * (chip_w + chip_gap)
+            c.setFillColor(WHITE)
+            c.setStrokeColor(GREY_3)
+            c.roundRect(chip_x, chip_y, chip_w, chip_h, 3, fill=1, stroke=1)
+            c.setFillColor(accent)
+            c.setFont("YaHei-Bold", 6.8)
+            c.drawCentredString(chip_x + chip_w / 2, chip_y + 5.2 * mm, symbol)
+            c.setFillColor(GREY_2)
+            c.setFont("YaHei", 5.8)
+            c.drawCentredString(chip_x + chip_w / 2, chip_y + 2 * mm, label)
 
-    def arrow(self, c, x1, y1, x2, y2):
-        c.setStrokeColor(CYAN)
-        c.setFillColor(CYAN)
-        c.setLineWidth(1.2)
+    def arrow(self, c, x1, y1, x2, y2, color=CYAN):
+        c.setStrokeColor(color)
+        c.setFillColor(color)
+        c.setLineWidth(1.25)
         c.line(x1, y1, x2, y2)
-        c.line(x2, y2, x2 - 4, y2 + 2.5)
-        c.line(x2, y2, x2 - 4, y2 - 2.5)
+        if abs(y2 - y1) >= abs(x2 - x1):
+            direction = 1 if y2 > y1 else -1
+            c.line(x2, y2, x2 - 2.6, y2 - direction * 4)
+            c.line(x2, y2, x2 + 2.6, y2 - direction * 4)
+        else:
+            direction = 1 if x2 > x1 else -1
+            c.line(x2, y2, x2 - direction * 4, y2 - 2.6)
+            c.line(x2, y2, x2 - direction * 4, y2 + 2.6)
+
+    def stage_label(self, c, number, label, y):
+        c.setFillColor(NAVY)
+        c.circle(7 * mm, y, 3.2 * mm, fill=1, stroke=0)
+        c.setFillColor(WHITE)
+        c.setFont("YaHei-Bold", 6.5)
+        c.drawCentredString(7 * mm, y - 2.1, number)
+        c.setFillColor(GREY_1)
+        c.setFont("YaHei-Bold", 7)
+        c.drawString(12 * mm, y - 2.2, label)
 
     def draw(self):
         c = self.canv
         w = self.width
-        c.setFillColor(GREY_4)
-        c.roundRect(0, 0, w, self.height, 6, fill=1, stroke=0)
-        gap = 5 * mm
+        h = self.height
+        c.setFillColor(colors.HexColor("#F7F9FB"))
+        c.setStrokeColor(GREY_3)
+        c.setLineWidth(0.6)
+        c.roundRect(0, 0, w, h, 7, fill=1, stroke=1)
+
+        # Stage 1 — six factors grouped by sensing source.
+        self.stage_label(c, "01", "六因子证据输入", h - 7 * mm)
+        gap = 4 * mm
         bw = (w - 4 * gap) / 3
-        bh = 24 * mm
-        y1 = self.height - bh - 7 * mm
-        self.draw_box(c, gap, y1, bw, bh, BLUE_LIGHT, "神经证据", "EEG协方差与黎曼距离|偏离度 D 与速度 V")
-        self.draw_box(c, 2 * gap + bw, y1, bw, bh, CYAN_LIGHT, "眼部行为证据", "PERCLOS与连续闭眼|仅在摄像头可用时启用")
-        self.draw_box(c, 3 * gap + 2 * bw, y1, bw, bh, AMBER_LIGHT, "任务绩效与情境", "异常感知下降 L|作业危险等级 C")
+        bh = 21 * mm
+        box_y = h - 32 * mm
+        x1, x2, x3 = gap, 2 * gap + bw, 3 * gap + 2 * bw
+        self.draw_box(c, x1, box_y, bw, bh, BLUE_LIGHT, BLUE, "EEG 神经状态",
+                      [("D_EEG", "疲劳偏离程度"), ("V_Riemann", "风险域移动速度")])
+        self.draw_box(c, x2, box_y, bw, bh, CYAN_LIGHT, CYAN, "摄像头 · 眼部行为",
+                      [("P_PERCLOS", "单位时间闭眼率"), ("T_closure", "连续闭眼时长")], "可选模态")
+        self.draw_box(c, x3, box_y, bw, bh, AMBER_LIGHT, AMBER, "任务绩效与情境",
+                      [("L_anomaly", "异常感知下降"), ("C_task", "任务危险等级")])
 
-        mid_y = y1 - 7 * mm
-        c.setFont("YaHei", 7)
-        c.setFillColor(GREY_2)
-        c.drawCentredString(w / 2, mid_y + 7, "可用性 aᵢ × 数据质量 qᵢ × 基础权重 wᵢ")
-        self.arrow(c, w / 2, mid_y + 2, w / 2, mid_y - 6)
+        gate_y = h - 49 * mm
+        for center in (x1 + bw / 2, x2 + bw / 2, x3 + bw / 2):
+            self.arrow(c, center, box_y - 1, center, gate_y + 10 * mm)
 
-        out_w = 72 * mm
-        out_h = 16 * mm
-        out_x = (w - out_w) / 2
-        out_y = 5 * mm
-        c.setFillColor(NAVY)
-        c.roundRect(out_x, out_y, out_w, out_h, 4, fill=1, stroke=0)
+        # Stage 2 — explicit modality gating and weight normalization.
+        self.stage_label(c, "02", "证据门控与动态权重", gate_y + 6 * mm)
+        gate_x = 44 * mm
+        gate_w = w - 49 * mm
+        gate_h = 12 * mm
         c.setFillColor(WHITE)
-        c.setFont("YaHei-Bold", 9)
-        c.drawCentredString(w / 2, out_y + out_h - 12, "时变综合风险 R(t)")
-        c.setFont("YaHei", 6.5)
-        c.drawCentredString(w / 2, out_y + 7, "平滑 · 分级 · 迟滞 · 拒判 · 交班建议")
+        c.setStrokeColor(CYAN)
+        c.roundRect(gate_x, gate_y - 2 * mm, gate_w, gate_h, 5, fill=1, stroke=1)
+        labels = [("可用性 a_i", "设备是否在线"), ("质量 q_i", "信号是否可信"), ("有效权重 w~_i", "缺失模态自动重归一")]
+        seg_w = gate_w / 3
+        for idx, (title, sub) in enumerate(labels):
+            cx = gate_x + (idx + .5) * seg_w
+            if idx:
+                c.setStrokeColor(GREY_3)
+                c.line(gate_x + idx * seg_w, gate_y, gate_x + idx * seg_w, gate_y + 6 * mm)
+            c.setFillColor(NAVY)
+            c.setFont("YaHei-Bold", 7.2)
+            c.drawCentredString(cx, gate_y + 5.2 * mm, title)
+            c.setFillColor(GREY_2)
+            c.setFont("YaHei", 5.7)
+            c.drawCentredString(cx, gate_y + 1.8 * mm, sub)
+
+        # Camera-off route is shown rather than buried in the caption.
+        note_y = gate_y - 7 * mm
+        c.setFillColor(CYAN_LIGHT)
+        c.setStrokeColor(CYAN)
+        c.roundRect(gate_x, note_y, gate_w, 5 * mm, 3, fill=1, stroke=1)
+        c.setFillColor(CYAN)
+        c.setFont("YaHei-Bold", 6.1)
+        c.drawCentredString(gate_x + gate_w / 2, note_y + 1.8 * mm,
+                            "摄像头不可用 → P_PERCLOS、T_closure 权重置零 → 其余证据权重重新归一化")
+
+        fusion_y = 22 * mm
+        self.arrow(c, w / 2, note_y - 1, w / 2, fusion_y + 14 * mm)
+
+        # Stage 3 — normalized fusion equation.
+        self.stage_label(c, "03", "质量感知融合", fusion_y + 9 * mm)
+        formula_x, formula_w, formula_h = 44 * mm, w - 49 * mm, 13 * mm
+        c.setFillColor(NAVY)
+        c.setStrokeColor(NAVY)
+        c.roundRect(formula_x, fusion_y, formula_w, formula_h, 5, fill=1, stroke=0)
+        c.setFillColor(WHITE)
+        c.setFont("YaHei-Bold", 8)
+        c.drawCentredString(formula_x + formula_w / 2, fusion_y + 7.5 * mm,
+                            "R(t) = 100 × Σ[a_i q_i w_i z_i] / Σ[a_i q_i w_i]")
+        c.setFont("YaHei", 5.8)
+        c.drawCentredString(formula_x + formula_w / 2, fusion_y + 3 * mm,
+                            "仅对当前可用且质量合格的证据求和")
+
+        # Stage 4 — operational outputs.
+        out_y = 3.5 * mm
+        self.arrow(c, w / 2, fusion_y - 1, w / 2, out_y + 10 * mm)
+        self.stage_label(c, "04", "风险决策输出", out_y + 6 * mm)
+        out_x, out_w = 44 * mm, w - 49 * mm
+        items = [("风险值 0–100", BLUE), ("低 / 中 / 高风险", AMBER), ("置信度或拒判", RED), ("观察 / 复核 / 交班", GREEN)]
+        item_gap = 2 * mm
+        item_w = (out_w - 3 * item_gap) / 4
+        for idx, (label, accent) in enumerate(items):
+            ix = out_x + idx * (item_w + item_gap)
+            c.setFillColor(WHITE)
+            c.setStrokeColor(accent)
+            c.roundRect(ix, out_y, item_w, 8 * mm, 3, fill=1, stroke=1)
+            c.setFillColor(accent)
+            c.setFont("YaHei-Bold", 6.2)
+            c.drawCentredString(ix + item_w / 2, out_y + 3 * mm, label)
 
 
 class AvailabilityDiagram(Flowable):
