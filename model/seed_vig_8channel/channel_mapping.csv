@@ -1,0 +1,9 @@
+﻿target,actual,zero_based_index,one_based_index,angular_distance_degrees,independent_nearest,equivalent
+F3,FT7,0,1,51.60344406607268,FT7,False
+Fz,CP1,6,7,70.02622180542168,CP1,False
+F4,FT8,1,2,49.99262704740883,FT8,False
+C3,P1,8,9,43.36623684331352,CP1,False
+Cz,Pz,9,10,39.24993690565609,CP1,False
+C4,CP2,7,8,29.365642274573343,CP2,False
+P3,PO3,11,12,17.056102023692205,P1,False
+P4,P2,10,11,15.649490051624872,P2,False

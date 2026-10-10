@@ -1,0 +1,168 @@
+{
+  "dataset_path": "E:\\CODEX Projects\\Methodology\\data\\external\\SEED-VIG\\SEED_VIG.mat",
+  "dataset_sha256": "e74ab8452f174b4081eebbb395e556767aac04790121933c5de123e444bc5ab7",
+  "shape": [
+    4566,
+    17,
+    384
+  ],
+  "selected_channels": [
+    "FT7",
+    "CP1",
+    "FT8",
+    "P1",
+    "Pz",
+    "CP2",
+    "PO3",
+    "P2"
+  ],
+  "zero_based_indices": [
+    0,
+    6,
+    1,
+    8,
+    9,
+    7,
+    11,
+    10
+  ],
+  "n_features": 36,
+  "n_subjects": 12,
+  "n_calibration": 240,
+  "n_evaluation": 4326,
+  "mapping_method": "Minimum total spherical angular distance, one-to-one Hungarian assignment, MNE standard_1005 template; normalized xyz around template origin; no measured lab coordinates",
+  "source_commit": "10ce354dd12aaea36ccb36640c8a68d3b805a7db",
+  "source_hashes": {
+    "riemann_core.py": "150eca8c0e1d48c147a841b435c4c5abe4d8267a0f6c14ee7975e51a8201e161",
+    "train_seed_vig.py": "f8b11436ce5cefc6657c8a71bb9ea4b7de09b4a40418aa160ba71cde3371eb90",
+    "infer.py": "e0c889ba61961d80e671a9125f212cc6c0058f17bdfd63bfd7ae75ee3f9ee3c9"
+  },
+  "versions": {
+    "numpy": "2.5.3",
+    "scipy": "1.18.1",
+    "sklearn": "1.9.0",
+    "mne": "1.13.0"
+  },
+  "protocol": "LOSO; 20 randomly selected unlabeled calibration epochs per subject offered before inference; excluded from classifier fitting and scoring; frozen center; scaler/LR trained on other subjects only; fixed seed, C=1, balanced classes, threshold=.5",
+  "temporal_limitation": "No timestamps/original chronological order or independent personal baseline exist. This is a disjoint calibration-before-query replay, not proven chronological prospective validation. Class-balanced extreme-state extracted dataset cannot establish live performance.",
+  "mean": {
+    "accuracy": 0.852378813791865,
+    "balanced_accuracy": 0.8518096683003659,
+    "f1": 0.8540529210896869,
+    "roc_auc": 0.913845888794254
+  },
+  "std": {
+    "accuracy": 0.08273019908911229,
+    "balanced_accuracy": 0.08271642412527537,
+    "f1": 0.07608782231178174,
+    "roc_auc": 0.0603879790561194
+  },
+  "pooled": {
+    "accuracy": 0.8384188626907073,
+    "balanced_accuracy": 0.8384244922805439,
+    "f1": 0.840301576422207,
+    "roc_auc": 0.9063382214386966
+  },
+  "inference_checks": [
+    {
+      "subject": 1,
+      "reload_max_abs_error": 0.0,
+      "target_batch_invariant": true,
+      "other_target_mutation_invariant": true,
+      "inference_seconds": 0.0182030999858398,
+      "ms_per_window": 0.08751490377807596
+    },
+    {
+      "subject": 2,
+      "reload_max_abs_error": 0.0,
+      "target_batch_invariant": true,
+      "other_target_mutation_invariant": true,
+      "inference_seconds": 0.013794500002404675,
+      "ms_per_window": 0.09448287672879914
+    },
+    {
+      "subject": 3,
+      "reload_max_abs_error": 0.0,
+      "target_batch_invariant": true,
+      "other_target_mutation_invariant": true,
+      "inference_seconds": 0.036423100013053045,
+      "ms_per_window": 0.08431273151169687
+    },
+    {
+      "subject": 4,
+      "reload_max_abs_error": 0.0,
+      "target_batch_invariant": true,
+      "other_target_mutation_invariant": true,
+      "inference_seconds": 0.04306720002205111,
+      "ms_per_window": 0.0900987448160065
+    },
+    {
+      "subject": 5,
+      "reload_max_abs_error": 0.0,
+      "target_batch_invariant": true,
+      "other_target_mutation_invariant": true,
+      "inference_seconds": 0.015534899983322248,
+      "ms_per_window": 0.08928103438690947
+    },
+    {
+      "subject": 6,
+      "reload_max_abs_error": 0.0,
+      "target_batch_invariant": true,
+      "other_target_mutation_invariant": true,
+      "inference_seconds": 0.054990399978123605,
+      "ms_per_window": 0.08840900318026303
+    },
+    {
+      "subject": 7,
+      "reload_max_abs_error": 0.0,
+      "target_batch_invariant": true,
+      "other_target_mutation_invariant": true,
+      "inference_seconds": 0.03228559999843128,
+      "ms_per_window": 0.08678924730761096
+    },
+    {
+      "subject": 8,
+      "reload_max_abs_error": 0.0,
+      "target_batch_invariant": true,
+      "other_target_mutation_invariant": true,
+      "inference_seconds": 0.01126180001301691,
+      "ms_per_window": 0.09230983617226975
+    },
+    {
+      "subject": 9,
+      "reload_max_abs_error": 0.0,
+      "target_batch_invariant": true,
+      "other_target_mutation_invariant": true,
+      "inference_seconds": 0.03226450001238845,
+      "ms_per_window": 0.08402213544892827
+    },
+    {
+      "subject": 10,
+      "reload_max_abs_error": 0.0,
+      "target_batch_invariant": true,
+      "other_target_mutation_invariant": true,
+      "inference_seconds": 0.05840530002024025,
+      "ms_per_window": 0.08538786552666702
+    },
+    {
+      "subject": 11,
+      "reload_max_abs_error": 0.0,
+      "target_batch_invariant": true,
+      "other_target_mutation_invariant": true,
+      "inference_seconds": 0.033665700000710785,
+      "ms_per_window": 0.08416425000177696
+    },
+    {
+      "subject": 12,
+      "reload_max_abs_error": 0.0,
+      "target_batch_invariant": true,
+      "other_target_mutation_invariant": true,
+      "inference_seconds": 0.026296600000932813,
+      "ms_per_window": 0.086501973687279
+    }
+  ],
+  "final_model_sha256": "3fdd79e28f6421c350a50c8464ab01addfacec0af6e8d00a63590e9fb2438f38",
+  "final_model_note": "Deployment candidate trained on all subjects; no independent validation claimed for final-model example",
+  "labels": "0 alert, 1 drowsy; source-defined labels",
+  "input_contract": "Actual selected electrodes in exact saved order, 128 Hz, (n,8,384), finite values, same units/reference/preprocessing as training; requires 20 unlabeled calibration epochs; laboratory F3/Fz/F4/C3/Cz/C4/P3/P4 cannot be relabeled as these electrodes"
+}

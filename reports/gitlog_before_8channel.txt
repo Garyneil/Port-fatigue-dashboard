@@ -1,0 +1,15 @@
+10ce354 2026-10-04T10:07:05+08:00 Redraw multimodal risk framework figure
+476a575 2026-10-04T09:51:02+08:00 Add multimodal fatigue risk framework report
+71df45a 2026-10-03T23:48:23+08:00 Add optional PERCLOS modality status
+af0ca38 2026-10-03T23:25:12+08:00 Move AGV box further down
+80d75bd 2026-10-03T23:23:17+08:00 Move AGV detection box lower
+e589d38 2026-10-03T23:20:47+08:00 Remove monitor subtitle
+3febd8b 2026-09-29T13:17:57+08:00 Retry GitHub Pages deployment
+ca399d7 2026-09-29T13:10:17+08:00 Deploy dashboard with GitHub Pages
+b49c5d3 2026-09-29T12:56:35+08:00 Align monitor object labels
+24b22d9 2026-09-29T12:12:18+08:00 Simplify crane monitor animation
+2c97289 2026-09-29T11:57:04+08:00 Animate port monitor scene
+3f616bf 2026-09-29T00:08:01+08:00 Add trained Riemannian fatigue model
+c1dbe49 2026-09-28T18:56:20+08:00 Upgrade monitoring feed with realistic port scene
+d0a8596 2026-09-28T18:14:18+08:00 Add project documentation
+63bf64c 2026-09-28T18:02:00+08:00 Update Site source
