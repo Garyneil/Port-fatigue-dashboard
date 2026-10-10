@@ -9,9 +9,6 @@
     duration: 26,
     quality: 94,
     response: 612,
-    perclos: 24,
-    cameraOn: true,
-    perclosEnabled: true,
     workSeconds: 6138
   };
 
@@ -26,39 +23,9 @@
 
   function seededJitter(scale) { return (Math.random() - 0.48) * scale; }
 
-  function renderModalityState() {
-    const perclosActive = state.cameraOn && state.perclosEnabled;
-    const cameraToggle = $('cameraToggle');
-    const perclosToggle = $('perclosToggle');
-
-    cameraToggle.classList.toggle('is-active', state.cameraOn);
-    cameraToggle.setAttribute('aria-pressed', String(state.cameraOn));
-    $('cameraStatus').textContent = state.cameraOn ? '已开启' : '未开启';
-
-    perclosToggle.classList.toggle('is-active', perclosActive);
-    perclosToggle.classList.toggle('is-unavailable', !state.cameraOn);
-    perclosToggle.setAttribute('aria-pressed', String(perclosActive));
-    perclosToggle.setAttribute('aria-disabled', String(!state.cameraOn));
-    $('perclosStatus').textContent = perclosActive ? '已启用' : '未启用';
-
-    $('perclosEvidence').classList.toggle('is-disabled', !perclosActive);
-    $('perclosValue').textContent = perclosActive ? `${Math.round(state.perclos)}%` : '--';
-    $('perclosBar').style.width = perclosActive ? `${state.perclos}%` : '0%';
-    $('perclosNote').textContent = perclosActive
-      ? '操作员摄像头可用，当前参与风险融合'
-      : '当前不参与风险评估，系统仅采用 EEG 黎曼证据';
-    $('fusionStatus').textContent = perclosActive
-      ? '当前采用 EEG 黎曼证据 + PERCLOS 多模态融合评估'
-      : 'PERCLOS 权重已置零 · 当前仅采用 EEG 黎曼证据评估';
-  }
-
   function updateSimulation() {
     state.neuralRisk = Math.max(38, Math.min(94, state.neuralRisk + seededJitter(7)));
-    state.perclos = Math.max(6, Math.min(42, state.perclos + seededJitter(3.2)));
-    const perclosRisk = Math.max(0, Math.min(100, (state.perclos - 8) * 4));
-    state.risk = state.cameraOn && state.perclosEnabled
-      ? state.neuralRisk * 0.8 + perclosRisk * 0.2
-      : state.neuralRisk;
+    state.risk = state.neuralRisk;
     state.distance = Math.max(.35, Math.min(.98, state.distance + seededJitter(.055)));
     state.attention = Math.max(24, Math.min(82, 100 - state.risk + seededJitter(8)));
     state.duration = state.risk >= 62 ? Math.min(60, state.duration + 2) : Math.max(0, state.duration - 4);
@@ -76,7 +43,6 @@
     $('durationBar').style.width = `${Math.min(100, state.duration * 2)}%`;
     $('signalQuality').textContent = state.quality;
     $('responseTime').textContent = state.response;
-    renderModalityState();
 
     const high = risk >= 82 && state.duration >= 30;
     const warning = risk >= 62;
@@ -99,18 +65,6 @@
     const points = [[.18,.10],[.24,.14],[.29,.09],[.35,.18],[.38,.13],[.43,.21],[.47,.16],[.55,.24],[.61,.19],[.67,.29],[.72,.25],[.81,.34],[.86,.39]];
     group.innerHTML = points.map(([x,y]) => `<circle cx="${54+x*442}" cy="${224-y/.5*190}" r="2.6"/>`).join('');
   }
-
-  $('cameraToggle').addEventListener('click', () => {
-    state.cameraOn = !state.cameraOn;
-    state.perclosEnabled = state.cameraOn;
-    updateSimulation();
-  });
-
-  $('perclosToggle').addEventListener('click', () => {
-    if (!state.cameraOn) return;
-    state.perclosEnabled = !state.perclosEnabled;
-    updateSimulation();
-  });
 
   createHistory(); tickClock(); updateSimulation();
   setInterval(tickClock, 250); setInterval(updateSimulation, 2000);
