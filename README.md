@@ -44,6 +44,8 @@
 
 ## 本地运行
 
+连接实验室脑电帽的 Jetson Nano 请使用 [串口真实数据启动指南](interface/JETSON_QUICKSTART.md)，包括首次安装、每次启动和数据检查命令。
+
 项目不依赖构建工具，可直接打开：
 
 ```text
