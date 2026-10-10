@@ -8,7 +8,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23071322'/%3E%3Cpath d='M7 22V11h4v11m5 0V7h4v15m5 0v-8h-4' fill='none' stroke='%233ce8d0' stroke-width='2.4'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./styles.css">
 </head>
-<body>
+<body data-demo="false">
   <div class="app-shell">
     <header class="topbar">
       <div class="brand-mark" aria-hidden="true">
@@ -19,7 +19,8 @@
         <h1>基于黎曼流形与跨被试校准的码头作业人员疲劳度检测</h1>
       </div>
       <div class="top-status">
-        <div class="system-online"><span class="status-dot"></span>仿真系统在线</div>
+        <button id="demoToggle" class="demo-toggle" type="button" aria-pressed="false">仿真演示 <strong id="demoState">关闭</strong></button>
+        <div class="system-online"><span class="status-dot"></span><span id="systemStatus">等待脑电接口</span></div>
         <div class="time-box"><strong id="clock">--:--:--</strong><span id="date">----/--/--</span></div>
       </div>
     </header>
@@ -59,12 +60,12 @@
         <div class="monitor-footer">
           <article class="operator-card">
             <div class="operator-avatar" aria-hidden="true"><span></span></div>
-            <div><p>当前远程操控员</p><strong>OP-017 · 模拟席位 A</strong></div>
-            <div class="tag neutral">跨被试校准已加载</div>
+            <div><p>当前远程操控员</p><strong><span id="operatorName">--</span></strong></div>
+            <div class="tag neutral" id="calibrationStatus">等待校准状态</div>
           </article>
-          <article class="metric-card"><p>连续作业时长</p><strong id="workDuration">01:42:18</strong><span>本班次</span></article>
-          <article class="metric-card"><p>EEG 数据质量</p><strong><span id="signalQuality">94</span><small>%</small></strong><span>32 通道 · 250 Hz</span></article>
-          <article class="metric-card"><p>异常感知反应</p><strong><span id="responseTime">612</span><small> ms</small></strong><span>近 5 次均值</span></article>
+          <article class="metric-card"><p>连续作业时长</p><strong id="workDuration">--</strong><span>本班次</span></article>
+          <article class="metric-card"><p>EEG 数据质量</p><strong><span id="signalQuality">--</span><small>%</small></strong><span id="eegFormat">等待设备数据</span></article>
+          <article class="metric-card"><p>异常感知反应</p><strong><span id="responseTime">--</span><small> ms</small></strong><span>近 5 次均值</span></article>
         </div>
       </section>
 
@@ -72,29 +73,38 @@
         <section class="alert-panel panel" aria-labelledby="alert-title">
           <div class="panel-heading compact">
             <div><span class="section-index">02</span><div><h2 id="alert-title">疲劳预警</h2><p>FATIGUE EARLY WARNING</p></div></div>
-            <span class="sim-badge">MODEL READY · SIM INPUT</span>
+            <span class="sim-badge" id="inputBadge">真实接口 · 等待数据</span>
           </div>
 
+          <div class="source-panel">
+            <p id="sourceStatus" role="status" aria-live="polite">接口暂无数据传入</p>
+            <div class="eeg-samples" id="eegSamples" aria-label="八通道脑电实时数值">--</div>
+            <form id="interfaceForm">
+              <label for="interfaceUrl">脑电接口地址</label>
+              <div class="interface-controls"><input id="interfaceUrl" type="text" placeholder="输入 HTTPS 或 WSS 接口地址" aria-describedby="interfaceHint"><button type="submit">连接</button></div>
+              <small id="interfaceHint">真实模式读取设备接口；仿真模式暂停接口读取</small>
+            </form>
+          </div>
           <div class="gauge-row">
-            <div class="risk-gauge" id="riskGauge" style="--risk:68">
-              <div class="gauge-inner"><strong id="riskScore">68</strong><span>/ 100</span><small>疲劳风险</small></div>
+            <div class="risk-gauge" id="riskGauge" style="--risk:0">
+              <div class="gauge-inner"><strong id="riskScore">--</strong><span>/ 100</span><small>疲劳风险</small></div>
             </div>
             <div class="risk-copy">
               <p>当前判定</p>
-              <strong id="riskLabel">中高风险</strong>
-              <span id="riskAdvice">建议加强观察</span>
+              <strong id="riskLabel">等待数据</strong>
+              <span id="riskAdvice">接口暂无数据传入</span>
             </div>
           </div>
 
           <div class="evidence-list">
-            <div class="evidence-item"><div><span>注意稳定度</span><b id="attentionValue">42%</b></div><div class="mini-track"><i id="attentionBar" style="width:42%"></i></div><small>越低表示注意波动越明显</small></div>
-            <div class="evidence-item"><div><span>流形偏离度 <em>d<sub>R</sub></em></span><b id="distanceValue">0.74</b></div><div class="mini-track"><i id="distanceBar" style="width:74%"></i></div><small>当前协方差到清醒参考中心的距离</small></div>
-            <div class="evidence-item"><div><span>风险持续时间</span><b id="durationValue">26 s</b></div><div class="mini-track amber"><i id="durationBar" style="width:52%"></i></div><small>超过边界后的连续累积时间</small></div>
+            <div class="evidence-item"><div><span>注意稳定度</span><b id="attentionValue">--</b></div><div class="mini-track"><i id="attentionBar" style="width:0%"></i></div><small>越低表示注意波动越明显</small></div>
+            <div class="evidence-item"><div><span>流形偏离度 <em>d<sub>R</sub></em></span><b id="distanceValue">--</b></div><div class="mini-track"><i id="distanceBar" style="width:0%"></i></div><small>当前协方差到清醒参考中心的距离</small></div>
+            <div class="evidence-item"><div><span>风险持续时间</span><b id="durationValue">--</b></div><div class="mini-track amber"><i id="durationBar" style="width:0%"></i></div><small>超过边界后的连续累积时间</small></div>
           </div>
 
           <div class="decision-strip" id="decisionStrip">
             <div class="decision-icon">!</div>
-            <div><span>系统决策</span><strong id="decisionText">持续观察 · 尚未触发交班预警</strong></div>
+            <div><span>系统决策</span><strong id="decisionText">接口暂无数据传入</strong></div>
           </div>
         </section>
 
@@ -117,7 +127,7 @@
               <path class="risk-fill" d="M361 34H496V224h-96c-8-74-23-136-39-190Z" fill="url(#riskZone)"/>
               <path class="boundary-line" d="M244 34c22 40 36 86 48 190"/><path class="boundary-line red" d="M361 34c16 54 31 116 39 190"/>
               <g class="historical-points" id="historicalPoints"></g>
-              <g id="currentPoint" transform="translate(365 130)" filter="url(#pointGlow)"><circle class="pulse" r="16"/><circle class="point" r="6"/><path d="M0-19V-10M0 10V19M-19 0H-10M10 0H19"/></g>
+              <g style="display:none" id="currentPoint" transform="translate(365 130)" filter="url(#pointGlow)"><circle class="pulse" r="16"/><circle class="point" r="6"/><path d="M0-19V-10M0 10V19M-19 0H-10M10 0H19"/></g>
               <g class="axis-labels"><text x="52" y="245">0.0</text><text x="134" y="245">0.2</text><text x="222" y="245">0.4</text><text x="310" y="245">0.6</text><text x="398" y="245">0.8</text><text x="486" y="245">1.0</text><text x="275" y="266">黎曼距离 d<tspan baseline-shift="sub" font-size="9">R</tspan> →</text><text transform="translate(18 170) rotate(-90)">流形速度 v<tspan baseline-shift="sub" font-size="9">R</tspan> →</text></g>
               <g class="zone-labels"><text x="100" y="56">正常域</text><text x="278" y="56">预警域</text><text x="409" y="56">高风险域</text></g>
             </svg>
@@ -133,7 +143,7 @@
       </aside>
     </main>
 
-    <footer class="footerbar"><span><i></i>EEG STREAM SIMULATED</span><span>参考模型：SEED-VIG-RA-TLR-v1.0</span><span>数据模式：仿真回放</span><span>刷新周期：2 s</span></footer>
+    <footer class="footerbar"><span><i></i><span id="streamStatus">EEG · WAITING</span></span><span>参考模型：SEED-VIG-RA-TLR-v1.0</span><span><span id="dataMode">数据模式：真实接口</span></span><span>刷新周期：2 s</span></footer>
   </div>
   <script src="./app.js"></script>
 </body>
