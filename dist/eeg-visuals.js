@@ -38,10 +38,10 @@
       return [x,y,z];
     };
     const addFace=(world,fill,stroke)=>{const pts=world.map(v=>projection(...v,angle));faces.push({pts,z:pts.reduce((v,p)=>v+p[2],0)/pts.length,fill,stroke});};
-    // White display stand and neck, black collar matching the reference mannequin.
+    // Simplified skin-tone neck matching the fabric cap reference.
     for(let j=0;j<48;j++){
       const a=j*Math.PI/24,b=(j+1)*Math.PI/24;
-      for(const [lo,hi,r,fill] of [[-1.25,-1.13,.42,'#d6e0e5'],[-1.13,-1.02,.33,'#161b22'],[-1.02,-.72,.28,'#dce4e7']])
+      for(const [lo,hi,r,fill] of [[-1.35,-.72,.29,'#c9a990']])
         addFace([[r*Math.sin(a),lo,r*Math.cos(a)],[r*Math.sin(b),lo,r*Math.cos(b)],[r*Math.sin(b),hi,r*Math.cos(b)],[r*Math.sin(a),hi,r*Math.cos(a)]],fill);
     }
     for(let i=0;i<64;i++)for(let j=0;j<96;j++){
@@ -50,14 +50,15 @@
       const center=surface(lat+Math.PI/128,lon+Math.PI/96);
       // Open forehead/face; fitted cap covers crown, sides and occiput.
       const front=Math.max(0,Math.cos(lon+Math.PI/96));
-      const isCap=center[1]>(-.08+.54*front**3);
+      const earOpening=Math.abs(Math.sin(lon+Math.PI/96))>.94&&center[1]>-.31&&center[1]<.16;
+      const isCap=center[1]>(-.68+1.14*front**3)&&!earOpening;
       const u=world[1].map((v,k)=>v-world[0][k]),v=world[3].map((v,k)=>v-world[0][k]);
       let normal=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
       if(normal.reduce((a,n,k)=>a+n*center[k],0)<0)normal=normal.map(n=>-n);
       const length=Math.hypot(...normal)||1;normal=normal.map(n=>n/length);
       const nx=normal[0]*Math.cos(angle)+normal[2]*Math.sin(angle),nz=normal[2]*Math.cos(angle)-normal[0]*Math.sin(angle);
       const light=.22+.78*Math.max(0,-.45*nx+.45*normal[1]+.77*nz);
-      const base=isCap?[13,17,23]:[118,132,142], gain=isCap?16:112;
+      const base=isCap?[82,91,109]:[149,118,94], gain=isCap?65:82;
       const rgb=base.map(v=>Math.min(248,Math.round(v+gain*light)));
       const fill=`rgb(${rgb.join(',')})`;
       addFace(world,fill,fill);
@@ -67,17 +68,17 @@
     [-1,1].forEach(side=>{
       for(let j=0;j<20;j++){
         const a=j*Math.PI/10,b=(j+1)*Math.PI/10;
-        addFace([[side*.64,-.07,.06],[side*(.69+.055*Math.cos(a)),-.07+.21*Math.sin(a),.035],[side*(.69+.055*Math.cos(b)),-.07+.21*Math.sin(b),.035]],'#d3dce0');
+        addFace([[side*.64,-.07,.06],[side*(.69+.055*Math.cos(a)),-.07+.21*Math.sin(a),.035],[side*(.69+.055*Math.cos(b)),-.07+.21*Math.sin(b),.035]],'#c6a58e');
       }
     });
     faces.sort((a,b)=>a.z-b.z).forEach(({pts,fill,stroke})=>{h.beginPath();pts.forEach((p,i)=>i?h.lineTo(p[0],p[1]):h.moveTo(p[0],p[1]));h.closePath();h.fillStyle=fill;h.fill();if(stroke){h.strokeStyle=stroke;h.lineWidth=.4;h.stroke();}});
     // Wires follow only the visible side of the black cap.
     const visibleLine=points=>{
-      let segment=[];const flush=()=>{if(segment.length>1)curve(segment,angle,'#3773b5',1.05);segment=[];};
+      let segment=[];const flush=()=>{if(segment.length>1)curve(segment,angle,'#68798e',.8);segment=[];};
       points.forEach(v=>{const p=projection(...v,angle);if(p[2]>.10)segment.push(v);else flush();});flush();
     };
     for(let j=0;j<12;j++){
-      const lon=j*Math.PI/6,low=Math.asin(-.07+.54*Math.max(0,Math.cos(lon))**3);
+      const lon=j*Math.PI/6,low=Math.asin(-.66+1.12*Math.max(0,Math.cos(lon))**3);
       visibleLine(Array.from({length:35},(_,i)=>surface(low+i/34*(Math.PI/2-low),lon,.025)));
     }
     [.62,1.05].forEach(lat=>visibleLine(Array.from({length:73},(_,j)=>surface(lat,j*Math.PI/36,.028))));
@@ -86,10 +87,9 @@
       const lon=j*Math.PI/(lat>1.2?2:4),v=surface(lat,lon,.032),p=projection(...v,angle);
       if(p[2]>.05&&v[1]>(-.08+.54*Math.max(0,Math.cos(lon))**3))electrode.push(p);
     }
-    electrode.sort((a,b)=>a[2]-b[2]).forEach(p=>{h.beginPath();h.ellipse(p[0],p[1],4.7,3.7,0,0,Math.PI*2);h.fillStyle='#477acb';h.fill();h.strokeStyle='#86a8e8';h.lineWidth=.7;h.stroke();h.beginPath();h.arc(p[0],p[1],1.3,0,Math.PI*2);h.fillStyle='#193563';h.fill();});
+    electrode.sort((a,b)=>a[2]-b[2]).forEach(p=>{h.beginPath();h.ellipse(p[0],p[1],4.7,3.7,0,0,Math.PI*2);h.fillStyle='#151a24';h.fill();h.strokeStyle='#86909e';h.lineWidth=.7;h.stroke();h.beginPath();h.arc(p[0],p[1],1.3,0,Math.PI*2);h.fillStyle='#030711';h.fill();});
     // Black chin strap appears only on the front-facing portion of the mannequin.
     if(Math.cos(angle)>.25){
-      curve([[-.57,.01,.30],[-.42,-.53,.42],[-.21,-.73,.40],[0,-.79,.39],[.21,-.73,.40],[.42,-.53,.42],[.57,.01,.30]],angle,'#151b24',9);
       curve([[-.24,-.35,.64],[0,-.39,.71],[.24,-.35,.64]],angle,'rgba(118,132,142,.65)',1);
       [-1,1].forEach(side=>curve([[side*.15,.16,.70],[side*.25,.17,.67],[side*.34,.14,.59]],angle,'rgba(102,121,135,.65)',1.5));
     }
