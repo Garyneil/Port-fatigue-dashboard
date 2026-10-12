@@ -9,7 +9,23 @@
   const number = v => typeof v === 'number' && Number.isFinite(v) ? v : null;
   const jitter = scale => (Math.random() - .48) * scale;
   const width = (id, v) => { $(id).style.width = `${v == null ? 0 : Math.max(0, Math.min(100, v))}%`; };
+  let episode = {active:false,warning:0,high:0,recovery:0,last:null,risk:null};
+  function resetEpisode(){episode={active:false,warning:0,high:0,recovery:0,last:null,risk:null};}
+  function pauseEpisode(){episode.last=null;episode.risk=null;episode.high=0;episode.recovery=0;}
+  function trackRisk(risk, now=Date.now()) {
+    if(risk==null){pauseEpisode();return {duration:null,highDuration:null};}
+    const dt=episode.last==null?0:Math.max(0,Math.min(10,(now-episode.last)/1000));
+    if(episode.active)episode.warning+=dt;
+    if(episode.risk!=null&&episode.risk>=82&&risk>=82)episode.high+=dt;else episode.high=0;
+    if(episode.active&&risk<58){episode.recovery=episode.risk!=null&&episode.risk<58?episode.recovery+dt:0;if(episode.recovery>=10){episode.active=false;episode.warning=0;episode.high=0;episode.recovery=0;}}
+    else episode.recovery=0;
+    if(!episode.active&&risk>=62){episode.active=true;episode.warning=0;}
+    episode.last=now;episode.risk=risk;
+    return {duration:episode.active?episode.warning:0,highDuration:episode.high};
+  }
   function clearEvidence(message = '接口暂无数据传入') {
+    pauseEpisode();
+    if(latest == null && episode.active && message === '接口暂无数据传入') message='数据中断 · 计时暂停';
     window.EEGVisual?.update(null);
     ['riskScore','distanceValue','attentionValue','durationValue','signalQuality','responseTime','workDuration'].forEach(id => { $(id).textContent = '--'; });
     ['distanceBar','attentionBar','durationBar'].forEach(id => width(id, null));
@@ -24,7 +40,8 @@
     $('calibrationStatus').textContent = '等待校准状态'; $('eegFormat').textContent = '等待设备数据'; $('eegSamples').textContent = '--';
   }
   function renderMetrics(data) {
-    const risk = number(data.risk), distance = number(data.distance), attention = number(data.attention), duration = number(data.duration);
+    const risk = number(data.risk), distance = number(data.distance), attention = number(data.attention);
+    const tracked=trackRisk(risk),duration=tracked.duration;
     $('riskScore').textContent = risk == null ? '--' : Math.round(risk);
     $('distanceValue').textContent = distance == null ? '--' : distance.toFixed(2);
     $('attentionValue').textContent = attention == null ? '--' : `${Math.round(attention)}%`;
@@ -40,7 +57,7 @@
     $('riskGauge').style.background = `conic-gradient(from 220deg, ${color} calc(${risk ?? 0} * 2.8deg), rgba(101,139,157,.12) 0 280deg, transparent 0)`;
     $('riskLabel').textContent = risk == null ? '等待推理' : high ? '高风险' : warning ? '中高风险' : '状态稳定';
     $('riskAdvice').textContent = risk == null ? '已收到脑电，尚无推理结果' : high ? '建议触发人工复核' : warning ? '建议加强观察' : '保持常规监测';
-    $('decisionText').textContent = risk == null ? '等待模型推理结果' : high && duration != null && duration >= 30 ? '预警待复核 · 建议准备交班' : high ? '高风险观察 · 等待持续时间确认' : warning ? '持续观察 · 尚未触发交班预警' : '正常监测 · 无需干预';
+    $('decisionText').textContent = risk == null ? '等待模型推理结果' : high && tracked.highDuration >= 30 ? '预警待复核 · 建议准备交班' : high ? '高风险观察 · 等待持续时间确认' : warning ? '持续观察 · 尚未触发交班预警' : '正常监测 · 无需干预';
     $('riskLabel').style.color = color; $('decisionStrip').style.borderColor = color;
     $('currentPoint').style.color = color;
     $('currentPoint').setAttribute('fill', color);
@@ -54,7 +71,7 @@
     state.risk = Math.max(38, Math.min(94, state.risk + jitter(7)));
     state.distance = Math.max(.35, Math.min(.98, state.distance + jitter(.055)));
     state.attention = Math.max(24, Math.min(82, 100 - state.risk + jitter(8)));
-    state.duration = state.risk >= 82 ? Math.min(60, state.duration + 2) : 0;
+
     state.quality = Math.round(Math.max(88, Math.min(98, state.quality + jitter(3)))); state.response = Math.round(430 + state.risk * 2.7 + jitter(30));
     renderMetrics({ ...state, velocity: Math.max(.06, Math.min(.42, .08 + state.risk / 300 + jitter(.04))) });
     $('sourceStatus').textContent = '仿真演示已开启 · 当前展示模拟数据'; $('systemStatus').textContent = '仿真演示中'; $('streamStatus').textContent = 'EEG · SIMULATED';
@@ -79,6 +96,7 @@
     $('eegFormat').textContent = `8 通道${number(packet.sample_rate_hz) != null ? ` · ${packet.sample_rate_hz} Hz` : ''}`;
   }
   function disconnect() {
+    resetEpisode();
     generation += 1; controller?.abort(); controller = null;
     if (socket) { socket.onmessage = null; socket.onclose = null; socket.onerror = null; socket.close(); socket = null; }
     latest = null; receivedAt = 0; polling = false;

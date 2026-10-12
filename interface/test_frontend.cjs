@@ -36,7 +36,7 @@ const respond = (index, body) => requests[index].resolve({ok:true,json:async()=>
   timers[1](); respond(2,packet({fatigue_probability:.73})); await flush();
   assert.equal(el('riskScore').textContent,73);
   now+=11000;timers[0]();assert.equal(el('riskScore').textContent,'--');
-  assert.equal(el('sourceStatus').textContent,'接口暂无数据传入');
+  assert.equal(el('sourceStatus').textContent,'数据中断 · 计时暂停');
   timers[1](); respond(3,packet({timestamp:new Date(now-20000).toISOString(),fatigue_probability:.95})); await flush();
   assert.equal(el('riskScore').textContent,'--','Reject stale server data');
   el('interfaceUrl').value='ws://127.0.0.1:8766';el('interfaceForm').events.submit({preventDefault(){}});
@@ -52,5 +52,18 @@ const respond = (index, body) => requests[index].resolve({ok:true,json:async()=>
   }
   sockets[0].onmessage({data:'invalid JSON'});assert.equal(el('riskScore').textContent,'--');
   el('demoToggle').events.click();assert(sockets[0].closed);
+  const tracker=script.slice(script.indexOf('  let episode ='),script.indexOf('  function clearEvidence'));
+  const trackerContext=vm.createContext({Date,Math});vm.runInContext(tracker,trackerContext);
+  const track=(r,t)=>vm.runInContext(`trackRisk(${r},${t})`,trackerContext);
+  assert.equal(track(62,0).duration,0);
+  assert.equal(track(70,5000).duration,5);
+  assert.equal(track(60,7000).duration,7,'Brief dip must retain episode');
+  track(57,8000);assert.equal(track(57,17000).duration,17);
+  assert.equal(track(57,18000).duration,0,'Ten seconds of recovery ends episode');
+  track(82,20000);track(82,30000);track(82,40000);assert.equal(track(82,50000).highDuration,30);
+  vm.runInContext('pauseEpisode()',trackerContext);
+  assert.equal(track(85,90000).duration,30,'Outage must not add elapsed time');
+  assert.equal(track(85,90000).highDuration,0,'High-risk confirmation restarts after outage');
+  assert.equal(track(70,92000).duration,32);
   console.log('PASS: default real mode, no data, demo toggle, race isolation, real EEG, real probability, stale data, WebSocket and malformed messages.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
