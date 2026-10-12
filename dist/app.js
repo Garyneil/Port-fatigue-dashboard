@@ -54,7 +54,7 @@
     state.risk = Math.max(38, Math.min(94, state.risk + jitter(7)));
     state.distance = Math.max(.35, Math.min(.98, state.distance + jitter(.055)));
     state.attention = Math.max(24, Math.min(82, 100 - state.risk + jitter(8)));
-    state.duration = state.risk >= 62 ? Math.min(60, state.duration + 2) : Math.max(0, state.duration - 4);
+    state.duration = state.risk >= 82 ? Math.min(60, state.duration + 2) : 0;
     state.quality = Math.round(Math.max(88, Math.min(98, state.quality + jitter(3)))); state.response = Math.round(430 + state.risk * 2.7 + jitter(30));
     renderMetrics({ ...state, velocity: Math.max(.06, Math.min(.42, .08 + state.risk / 300 + jitter(.04))) });
     $('sourceStatus').textContent = '仿真演示已开启 · 当前展示模拟数据'; $('systemStatus').textContent = '仿真演示中'; $('streamStatus').textContent = 'EEG · SIMULATED';

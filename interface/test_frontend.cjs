@@ -42,6 +42,14 @@ const respond = (index, body) => requests[index].resolve({ok:true,json:async()=>
   el('interfaceUrl').value='ws://127.0.0.1:8766';el('interfaceForm').events.submit({preventDefault(){}});
   sockets[0].onmessage({data:JSON.stringify(packet({fatigue_probability:.42}))});
   assert.equal(el('riskScore').textContent,42);
+  for (const risk of [61.9,62,81.9,82,95]) {
+    sockets[0].onmessage({data:JSON.stringify(packet({fatigue_probability:risk/100,distance:.1,velocity:.2,duration:0}))});
+    const expected=risk>=82?'#ff5e63':risk>=62?'#ffb74d':'#36e0d0';
+    assert.equal(el('riskLabel').style.color,expected);
+    assert.equal(el('currentPoint').attrs.fill,expected);
+    const x=Number(el('currentPoint').attrs.transform.match(/translate\(([^ ]+)/)[1]);
+    assert(Math.abs(x-(54+risk/100*442))<1e-8,'Plot must use same risk score, independent of distance');
+  }
   sockets[0].onmessage({data:'invalid JSON'});assert.equal(el('riskScore').textContent,'--');
   el('demoToggle').events.click();assert(sockets[0].closed);
   console.log('PASS: default real mode, no data, demo toggle, race isolation, real EEG, real probability, stale data, WebSocket and malformed messages.');
