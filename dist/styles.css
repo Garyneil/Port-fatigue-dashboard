@@ -34,3 +34,16 @@
 .decision-strip strong{display:block;line-height:1.6;overflow-wrap:anywhere}
 @media(max-width:1050px){.dashboard-grid{grid-template-columns:1fr}.camera-frame{height:320px}.decision-column{grid-template-columns:1fr 1fr;grid-template-rows:auto}}
 @media(max-width:760px){.decision-column{grid-template-columns:1fr}.camera-frame{height:280px}.monitor-footer{grid-template-columns:1fr 1fr}}
+
+/* Fill the available desktop grid while preserving natural warning content height. */
+@media(min-width:1051px){
+  .dashboard-grid{grid-template-columns:minmax(0,1.25fr) minmax(440px,1fr);align-items:stretch}
+  .monitor-panel{align-self:stretch;min-height:0}
+  .camera-frame{flex:1;height:auto;min-height:360px}
+  .monitor-footer{grid-template-columns:1.4fr repeat(3,minmax(0,.8fr))}
+  .operator-card{grid-column:auto}
+  .decision-column{grid-template-rows:auto auto;align-content:stretch}
+  .brain-view canvas{height:clamp(220px,29vh,340px)}
+}
+@media(min-width:1051px) and (min-height:1000px){.dashboard-grid{grid-template-columns:minmax(0,1.35fr) minmax(440px,1fr)}.camera-frame{min-height:460px}.chart-wrap{height:clamp(220px,23vh,320px)}}
+@media(min-width:761px) and (max-width:1050px){.camera-frame{height:clamp(300px,45vh,520px)}.monitor-footer{grid-template-columns:1.4fr repeat(3,minmax(0,.8fr))}.operator-card{grid-column:auto}}
