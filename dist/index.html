@@ -113,7 +113,7 @@
           </div>
 
           <div class="chart-wrap">
-            <svg id="manifoldChart" viewBox="0 0 520 270" role="img" aria-label="黎曼距离与流形速度构成的风险分区图">
+            <svg id="manifoldChart" viewBox="0 0 520 270" role="img" aria-label="疲劳风险分数与流形速度构成的风险分区图">
               <defs>
                 <linearGradient id="safeZone" x1="0" x2="1"><stop offset="0" stop-color="#0cc8d8" stop-opacity=".18"/><stop offset="1" stop-color="#0cc8d8" stop-opacity=".03"/></linearGradient>
                 <linearGradient id="warnZone" x1="0" x2="1"><stop offset="0" stop-color="#ffbc55" stop-opacity=".06"/><stop offset="1" stop-color="#ffbc55" stop-opacity=".2"/></linearGradient>
@@ -121,23 +121,23 @@
                 <filter id="pointGlow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
               </defs>
               <g class="grid-lines"><path d="M54 34V224M54 224H496"/><path d="M54 176H496M54 128H496M54 80H496"/><path d="M142 34V224M230 34V224M318 34V224M406 34V224"/></g>
-              <path class="safe-fill" d="M54 224V34H244c22 40 36 86 48 190Z" fill="url(#safeZone)"/>
-              <path class="warn-fill" d="M244 34H361c16 54 31 116 39 190H292c-12-104-26-150-48-190Z" fill="url(#warnZone)"/>
-              <path class="risk-fill" d="M361 34H496V224h-96c-8-74-23-136-39-190Z" fill="url(#riskZone)"/>
-              <path class="boundary-line" d="M244 34c22 40 36 86 48 190"/><path class="boundary-line red" d="M361 34c16 54 31 116 39 190"/>
+              <path class="safe-fill" d="M54 224V34H328.04V224Z" fill="url(#safeZone)"/>
+              <path class="warn-fill" d="M328.04 34H416.44V224H328.04Z" fill="url(#warnZone)"/>
+              <path class="risk-fill" d="M416.44 34H496V224H416.44Z" fill="url(#riskZone)"/>
+              <path class="boundary-line" d="M328.04 34V224"/><path class="boundary-line red" d="M416.44 34V224"/>
               <g class="historical-points" id="historicalPoints"></g>
               <g style="display:none" id="currentPoint" transform="translate(365 130)" filter="url(#pointGlow)"><circle class="pulse" r="16"/><circle class="point" r="6"/><path d="M0-19V-10M0 10V19M-19 0H-10M10 0H19"/></g>
-              <g class="axis-labels"><text x="52" y="245">0.0</text><text x="134" y="245">0.2</text><text x="222" y="245">0.4</text><text x="310" y="245">0.6</text><text x="398" y="245">0.8</text><text x="486" y="245">1.0</text><text x="275" y="266">黎曼距离 d<tspan baseline-shift="sub" font-size="9">R</tspan> →</text><text transform="translate(18 170) rotate(-90)">流形速度 v<tspan baseline-shift="sub" font-size="9">R</tspan> →</text></g>
-              <g class="zone-labels"><text x="100" y="56">正常域</text><text x="278" y="56">预警域</text><text x="409" y="56">高风险域</text></g>
+              <g class="axis-labels"><text x="52" y="245">0</text><text x="134" y="245">20</text><text x="222" y="245">40</text><text x="310" y="245">60</text><text x="398" y="245">80</text><text x="486" y="245">100</text><text x="275" y="266">疲劳风险分数 →</text><text transform="translate(18 170) rotate(-90)">流形速度 v<tspan baseline-shift="sub" font-size="9">R</tspan> →</text></g>
+              <g class="zone-labels"><text x="100" y="56">正常域</text><text x="347" y="56">预警域</text><text x="437" y="56">高风险域</text></g>
             </svg>
           </div>
 
           <div class="boundary-legend">
-            <div><span class="legend-mark safe"></span><p><strong>正常域</strong><small>d<sub>R</sub> &lt; 0.62</small></p></div>
-            <div><span class="legend-mark warn"></span><p><strong>预警域</strong><small>0.62 ≤ d<sub>R</sub> &lt; 0.86</small></p></div>
-            <div><span class="legend-mark risk"></span><p><strong>高风险域</strong><small>d<sub>R</sub> ≥ 0.86 且持续</small></p></div>
+            <div><span class="legend-mark safe"></span><p><strong>正常域</strong><small>风险分数 &lt; 62</small></p></div>
+            <div><span class="legend-mark warn"></span><p><strong>预警域</strong><small>62 ≤ 风险分数 &lt; 82</small></p></div>
+            <div><span class="legend-mark risk"></span><p><strong>高风险域</strong><small>风险分数 ≥ 82</small></p></div>
           </div>
-          <p class="chart-note"><span>i</span> d<sub>R</sub>：EEG 协方差矩阵与清醒参考中心的黎曼距离；阈值为仿真标定值，仅用于界面演示。</p>
+          <p class="chart-note"><span>i</span> 风险分数与02当前判定同步；持续高风险满30秒后建议交班复核。</p>
         </section>
       </aside>
       <section class="brain-panel panel" aria-labelledby="brain-title">

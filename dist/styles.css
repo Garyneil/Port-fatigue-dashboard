@@ -17,3 +17,7 @@
 .eeg-samples{font:10px/1.8 monospace;color:#7adbd0;overflow-wrap:anywhere;margin:5px 0 8px}
 
 .brain-panel{grid-column:1/-1;padding:14px 18px}.brain-visual-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.brain-view{position:relative;background:radial-gradient(ellipse at center,rgba(17,86,103,.12),rgba(4,16,27,.8));border:1px solid rgba(93,175,201,.16);padding:12px}.visual-title{display:flex;align-items:center;justify-content:space-between;gap:10px}.visual-title strong{font-size:13px;color:#d2eef0}.visual-title span{font-size:10px;color:#7cabb8}.brain-view canvas{display:block;width:100%;height:300px;object-fit:contain}.heat-legend{display:flex;align-items:center;gap:10px;max-width:230px;margin:-3px auto 6px;font-size:10px;color:#8bacb8}.heat-legend i{height:6px;flex:1;border-radius:4px;background:linear-gradient(90deg,#20429e,#169ad2,#35e2be,#f5d55a,#f7644d)}.brain-note{font-size:10px;line-height:1.6;color:#7199a8;margin:8px 0 0}@media(max-width:760px){.brain-visual-grid{grid-template-columns:1fr}.brain-panel{padding:12px}.brain-view canvas{height:280px}.visual-title{flex-wrap:wrap}}
+
+#currentPoint .point { fill: currentColor; stroke: currentColor; }
+#currentPoint .pulse { stroke: currentColor; }
+#currentPoint path { stroke: currentColor; }

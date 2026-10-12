@@ -34,17 +34,20 @@
     const seconds = number(data.workSeconds);
     $('workDuration').textContent = seconds == null ? '--' : `${pad(Math.floor(seconds / 3600))}:${pad(Math.floor(seconds % 3600 / 60))}:${pad(Math.floor(seconds % 60))}`;
     width('distanceBar', distance == null ? null : distance * 100); width('attentionBar', attention); width('durationBar', duration == null ? null : duration * 2);
-    const high = risk != null && risk >= 82 && duration != null && duration >= 30, warning = risk != null && risk >= 62;
+    const high = risk != null && risk >= 82, warning = risk != null && risk >= 62;
     const color = risk == null ? '#7693a3' : high ? '#ff5e63' : warning ? '#ffb74d' : '#36e0d0';
     $('riskGauge').style.setProperty('--risk', risk ?? 0);
     $('riskGauge').style.background = `conic-gradient(from 220deg, ${color} calc(${risk ?? 0} * 2.8deg), rgba(101,139,157,.12) 0 280deg, transparent 0)`;
     $('riskLabel').textContent = risk == null ? '等待推理' : high ? '高风险' : warning ? '中高风险' : '状态稳定';
     $('riskAdvice').textContent = risk == null ? '已收到脑电，尚无推理结果' : high ? '建议触发人工复核' : warning ? '建议加强观察' : '保持常规监测';
-    $('decisionText').textContent = risk == null ? '等待模型推理结果' : high ? '预警待复核 · 建议准备交班' : warning ? '持续观察 · 尚未触发交班预警' : '正常监测 · 无需干预';
+    $('decisionText').textContent = risk == null ? '等待模型推理结果' : high && duration != null && duration >= 30 ? '预警待复核 · 建议准备交班' : high ? '高风险观察 · 等待持续时间确认' : warning ? '持续观察 · 尚未触发交班预警' : '正常监测 · 无需干预';
     $('riskLabel').style.color = color; $('decisionStrip').style.borderColor = color;
+    $('currentPoint').style.color = color;
+    $('currentPoint').setAttribute('fill', color);
+    $('currentPoint').setAttribute('stroke', color);
     const velocity = number(data.velocity);
-    $('currentPoint').style.display = distance == null || velocity == null ? 'none' : '';
-    if (distance != null && velocity != null) $('currentPoint').setAttribute('transform', `translate(${54 + Math.min(1, distance) * 442} ${224 - Math.min(.5, velocity) / .5 * 190})`);
+    $('currentPoint').style.display = risk == null || velocity == null ? 'none' : '';
+    if (risk != null && velocity != null) $('currentPoint').setAttribute('transform', `translate(${54 + Math.max(0, Math.min(100, risk)) / 100 * 442} ${224 - Math.min(.5, velocity) / .5 * 190})`);
   }
   function simulate() {
     window.EEGVisual?.update({demo:true,channels:['F3','Fz','F4','C3','Cz','C4','P3','P4'],eeg:Array.from({length:8},(_,i)=>Math.sin(Date.now()/500+i)*20)});
