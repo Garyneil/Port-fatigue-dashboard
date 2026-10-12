@@ -105,7 +105,7 @@
     });h.clip();
     const band=h.createLinearGradient(0,scanCenter[1]-7,0,scanCenter[1]+7);band.addColorStop(0,'rgba(73,240,223,0)');band.addColorStop(.5,'rgba(73,240,223,.24)');band.addColorStop(1,'rgba(73,240,223,0)');h.fillStyle=band;h.fillRect(60,scanCenter[1]-7,280,14);
     curve(Array.from({length:65},(_,i)=>{const a=i*Math.PI/32;return [.68*radius*Math.sin(a),scanHeight,.75*radius*Math.cos(a)];}),angle,'rgba(112,255,234,.9)',1.2);h.restore();
-    h.font='10px Segoe UI';h.fillStyle='#73aeb9';h.fillText('EEG CAP / CROWN SCAN',20,27);h.fillText('假人模特 · 结构示意',274,313);
+    h.font='10px Segoe UI';h.fillStyle='#73aeb9';h.fillText('EEG CAP / CROWN SCAN',20,27);
   }
   function drawScalp() {
     s.clearRect(0,0,400,330);
