@@ -25,9 +25,13 @@
     const glow=h.createRadialGradient(200,150,25,200,160,160);glow.addColorStop(0,'rgba(28,92,123,.16)');glow.addColorStop(1,'rgba(4,18,31,0)');h.fillStyle=glow;h.fillRect(0,0,400,330);
     const faces=[];
     const surface=(lat,lon,offset=0)=>{
-      const y=Math.sin(lat), narrowing=y<-.25?1+(y+.25)*.35:1;
-      const x=(.66+offset)*Math.cos(lat)*Math.sin(lon)*narrowing;
-      let z=(.73+offset)*Math.cos(lat)*Math.cos(lon);
+      const rawY=Math.sin(lat);
+      // Rounded cranium and broad, truncated jaw; no pointed ellipsoid chin.
+      const y=rawY<-.52?-.52+(rawY+.52)*.42:rawY;
+      const radial=rawY<-.52?Math.max(.47,Math.cos(lat)):Math.cos(lat);
+      const narrowing=rawY<-.25?1+(rawY+.25)*.12:1;
+      const x=(.75+offset)*radial*Math.sin(lon)*narrowing;
+      let z=(.76+offset)*radial*Math.cos(lon);
       if(Math.cos(lon)>.55) {
         // Sculpted brow, recessed eye sockets, nasal bridge, lips and chin.
         const g=(xc,yc,sx,sy)=>Math.exp(-Math.pow((x-xc)/sx,2)-Math.pow((y-yc)/sy,2));
@@ -41,7 +45,7 @@
     // Simplified skin-tone neck matching the fabric cap reference.
     for(let j=0;j<48;j++){
       const a=j*Math.PI/24,b=(j+1)*Math.PI/24;
-      for(const [lo,hi,r,fill] of [[-1.35,-.72,.29,'#c9a990']])
+      for(const [lo,hi,r,fill] of [[-1.15,-.70,.30,'#c9a990']])
         addFace([[r*Math.sin(a),lo,r*Math.cos(a)],[r*Math.sin(b),lo,r*Math.cos(b)],[r*Math.sin(b),hi,r*Math.cos(b)],[r*Math.sin(a),hi,r*Math.cos(a)]],fill);
     }
     for(let i=0;i<64;i++)for(let j=0;j<96;j++){
@@ -68,7 +72,7 @@
     [-1,1].forEach(side=>{
       for(let j=0;j<20;j++){
         const a=j*Math.PI/10,b=(j+1)*Math.PI/10;
-        addFace([[side*.64,-.07,.06],[side*(.69+.055*Math.cos(a)),-.07+.21*Math.sin(a),.035],[side*(.69+.055*Math.cos(b)),-.07+.21*Math.sin(b),.035]],'#c6a58e');
+        addFace([[side*.73,-.07,.06],[side*(.76+.055*Math.cos(a)),-.07+.21*Math.sin(a),.035],[side*(.76+.055*Math.cos(b)),-.07+.21*Math.sin(b),.035]],'#c6a58e');
       }
     });
     faces.sort((a,b)=>a.z-b.z).forEach(({pts,fill,stroke})=>{h.beginPath();pts.forEach((p,i)=>i?h.lineTo(p[0],p[1]):h.moveTo(p[0],p[1]));h.closePath();h.fillStyle=fill;h.fill();if(stroke){h.strokeStyle=stroke;h.lineWidth=.4;h.stroke();}});
