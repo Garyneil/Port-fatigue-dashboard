@@ -10,6 +10,7 @@
   const jitter = scale => (Math.random() - .48) * scale;
   const width = (id, v) => { $(id).style.width = `${v == null ? 0 : Math.max(0, Math.min(100, v))}%`; };
   function clearEvidence(message = '接口暂无数据传入') {
+    window.EEGVisual?.update(null);
     ['riskScore','distanceValue','attentionValue','durationValue','signalQuality','responseTime','workDuration'].forEach(id => { $(id).textContent = '--'; });
     ['distanceBar','attentionBar','durationBar'].forEach(id => width(id, null));
     $('riskGauge').style.setProperty('--risk', 0);
@@ -46,6 +47,7 @@
     if (distance != null && velocity != null) $('currentPoint').setAttribute('transform', `translate(${54 + Math.min(1, distance) * 442} ${224 - Math.min(.5, velocity) / .5 * 190})`);
   }
   function simulate() {
+    window.EEGVisual?.update({demo:true,channels:['F3','Fz','F4','C3','Cz','C4','P3','P4'],eeg:Array.from({length:8},(_,i)=>Math.sin(Date.now()/500+i)*20)});
     state.risk = Math.max(38, Math.min(94, state.risk + jitter(7)));
     state.distance = Math.max(.35, Math.min(.98, state.distance + jitter(.055)));
     state.attention = Math.max(24, Math.min(82, 100 - state.risk + jitter(8)));
@@ -63,6 +65,7 @@
     const probability = packet && number(packet.fatigue_probability), validPrediction = probability != null && probability >= 0 && probability <= 1;
     if (!packet || packet.source !== 'real' || packet.has_data !== true || !Number.isFinite(stamp) || age < -2000 || age > 10000 || (!validRaw && !validPrediction)) { latest = null; receivedAt = 0; clearEvidence(); return; }
     latest = packet; receivedAt = stamp;
+    window.EEGVisual?.update(packet);
     $('eegSamples').textContent = validRaw ? raw.map((v,i) => `CH${i+1}: ${v.toFixed(2)}`).join('  ') : '--';
     const optional = (key, min, max) => { const v = number(packet[key]); return v != null && v >= min && v <= max ? v : null; };
     renderMetrics({risk: validPrediction ? probability * 100 : null, distance: optional('distance',0,100), attention: optional('attention',0,100), duration: optional('duration',0,86400), quality: optional('quality',0,100), response: optional('response_ms',0,60000), workSeconds: optional('work_seconds',0,864000), velocity: optional('velocity',0,100)});

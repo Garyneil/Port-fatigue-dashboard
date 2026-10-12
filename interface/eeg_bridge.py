@@ -15,9 +15,10 @@ import time
 
 
 class LatestEEG:
-    def __init__(self, sample_rate):
+    def __init__(self, sample_rate, channel_names=None):
         self.lock = threading.Lock()
         self.sample_rate = sample_rate
+        self.channel_names = channel_names or [f'eeg_{i}' for i in range(1, 9)]
         self.values = None
         self.received = 0
         self.count = 0
@@ -36,7 +37,7 @@ class LatestEEG:
         with self.lock:
             valid = self.values is not None and time.time() - self.received <= 5
             result = {'source': 'real', 'has_data': valid, 'sample_rate_hz': self.sample_rate,
-                      'channels': [f'eeg_{i}' for i in range(1, 9)], 'sample_count': self.count,
+                      'channels': self.channel_names, 'sample_count': self.count,
                       'calibrated': False}
             if valid:
                 result.update(eeg=list(self.values), timestamp=datetime.fromtimestamp(self.received, timezone.utc).isoformat())
@@ -85,6 +86,7 @@ def read_serial(reader_class, config, store):
 def main():
     parser = ArgumentParser(description=__doc__)
     parser.add_argument('--collector', type=Path, required=True, help='eeg-ecg-action-dataset-collector checkout')
+    parser.add_argument('--channel-names', help='Comma-separated verified physical electrode names in serial order')
     parser.add_argument('--port', help='Override configured serial port, e.g. COM3')
     parser.add_argument('--http-port', type=int, default=8765)
     parser.add_argument('--host', default='127.0.0.1')
@@ -104,7 +106,12 @@ def main():
     spec = importlib.util.spec_from_file_location('collector_serial_reader', collector / 'serial_reader.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    store = LatestEEG(config['fs'])
+    names = None
+    if args.channel_names:
+        names = [name.strip() for name in args.channel_names.split(',')]
+        if len(names) != 8 or len(set(names)) != 8 or any(not name for name in names):
+            raise ValueError('Provide eight unique verified electrode names in serial order')
+    store = LatestEEG(config['fs'], names)
     Handler.store = store
     Handler.allowed_origin = args.allow_origin
     thread = threading.Thread(target=read_serial, args=(module.Serial12HexReader, config, store), daemon=True)

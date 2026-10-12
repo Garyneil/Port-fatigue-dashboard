@@ -12,7 +12,7 @@ const timers = [], requests = [], sockets = [];
 let now = 1800000000000;
 class FakeDate extends Date { constructor(...args){super(...(args.length ? args : [now]));} static now(){return now;} }
 class FakeSocket { constructor(url){this.url=url;sockets.push(this);} close(){this.closed=true;} }
-const context = vm.createContext({document:{body:{dataset:{}},getElementById(id){assert(nodes.has(id),id);return nodes.get(id);}},location:{href:'http://127.0.0.1:8765/'},localStorage:{getItem(){return null;},setItem(){}},Date:FakeDate,Math,Number,String,Array,JSON,URL,AbortController,WebSocket:FakeSocket,fetch(url,options){return new Promise(resolve=>requests.push({url,options,resolve}));},setTimeout(){return 1;},clearTimeout(){},setInterval(fn){timers.push(fn);}});
+const context = vm.createContext({window:{},document:{body:{dataset:{}},getElementById(id){assert(nodes.has(id),id);return nodes.get(id);}},location:{href:'http://127.0.0.1:8765/'},localStorage:{getItem(){return null;},setItem(){}},Date:FakeDate,Math,Number,String,Array,JSON,URL,AbortController,WebSocket:FakeSocket,fetch(url,options){return new Promise(resolve=>requests.push({url,options,resolve}));},setTimeout(){return 1;},clearTimeout(){},setInterval(fn){timers.push(fn);}});
 const el = id => nodes.get(id);
 const flush = () => new Promise(resolve => setImmediate(resolve));
 const packet = extra => ({source:'real',has_data:true,timestamp:new Date(now).toISOString(),eeg:[1,2,3,4,5,6,7,8],sample_rate_hz:250,...extra});
