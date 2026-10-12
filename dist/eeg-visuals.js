@@ -10,106 +10,20 @@
     const n = Math.max(0,Math.min(1,v))*4, i = Math.min(3,Math.floor(n)), t=n-i;
     return stops[i].map((c,k)=>Math.round(c+(stops[i+1][k]-c)*t));
   };
-  function projection(x,y,z,angle) {
-    const xx=x*Math.cos(angle)+z*Math.sin(angle), zz=z*Math.cos(angle)-x*Math.sin(angle);
-    const yy=y*Math.cos(-.12)-zz*Math.sin(-.12), depth=y*Math.sin(-.12)+zz*Math.cos(-.12);
-    const scale=116*3.8/(3.8-depth);
-    return [200+xx*scale,158-yy*scale,depth];
-  }
-  function curve(points,angle,stroke,width=1) {
-    h.beginPath(); points.forEach((v,i)=>{const p=projection(...v,angle); i?h.lineTo(p[0],p[1]):h.moveTo(p[0],p[1]);}); h.strokeStyle=stroke;h.lineWidth=width;h.stroke();
-  }
+  const capPhoto = new Image();
+  capPhoto.src='./assets/eeg-cap-reference.png';
   function drawHead(time) {
-    const angle=reduced?.38:time*.00024+.38;
     h.clearRect(0,0,400,330);
-    const glow=h.createRadialGradient(200,150,25,200,160,160);glow.addColorStop(0,'rgba(28,92,123,.16)');glow.addColorStop(1,'rgba(4,18,31,0)');h.fillStyle=glow;h.fillRect(0,0,400,330);
-    const faces=[];
-    const surface=(lat,lon,offset=0)=>{
-      const rawY=Math.sin(lat);
-      // Rounded cranium and broad, truncated jaw; no pointed ellipsoid chin.
-      const y=rawY<-.52?-.52+(rawY+.52)*.42:rawY;
-      const radial=rawY<-.52?Math.max(.47,Math.cos(lat)):Math.cos(lat);
-      const narrowing=rawY<-.25?1+(rawY+.25)*.12:1;
-      const x=(.75+offset)*radial*Math.sin(lon)*narrowing;
-      let z=(.76+offset)*radial*Math.cos(lon);
-      if(Math.cos(lon)>.55) {
-        // Sculpted brow, recessed eye sockets, nasal bridge, lips and chin.
-        const g=(xc,yc,sx,sy)=>Math.exp(-Math.pow((x-xc)/sx,2)-Math.pow((y-yc)/sy,2));
-        z+=.27*g(0,-.08,.10,.24)+.07*g(0,.25,.36,.08);
-        z-=.08*(g(-.23,.16,.13,.09)+g(.23,.16,.13,.09));
-        z+=.045*g(0,-.36,.22,.06)+.06*g(0,-.57,.23,.12);
-      }
-      return [x,y,z];
-    };
-    const addFace=(world,fill,stroke)=>{const pts=world.map(v=>projection(...v,angle));faces.push({pts,z:pts.reduce((v,p)=>v+p[2],0)/pts.length,fill,stroke});};
-    // Simplified skin-tone neck matching the fabric cap reference.
-    for(let j=0;j<48;j++){
-      const a=j*Math.PI/24,b=(j+1)*Math.PI/24;
-      for(const [lo,hi,r,fill] of [[-1.15,-.70,.30,'#c9a990']])
-        addFace([[r*Math.sin(a),lo,r*Math.cos(a)],[r*Math.sin(b),lo,r*Math.cos(b)],[r*Math.sin(b),hi,r*Math.cos(b)],[r*Math.sin(a),hi,r*Math.cos(a)]],fill);
-    }
-    for(let i=0;i<64;i++)for(let j=0;j<96;j++){
-      const lat=-Math.PI/2+i*Math.PI/64,lon=j*Math.PI/48;
-      const world=[[lat,lon],[lat+Math.PI/64,lon],[lat+Math.PI/64,lon+Math.PI/48],[lat,lon+Math.PI/48]].map(([a,b])=>surface(a,b));
-      const center=surface(lat+Math.PI/128,lon+Math.PI/96);
-      // Open forehead/face; fitted cap covers crown, sides and occiput.
-      const front=Math.max(0,Math.cos(lon+Math.PI/96));
-      const earOpening=Math.abs(Math.sin(lon+Math.PI/96))>.9&&Math.pow(Math.cos(lon+Math.PI/96)/.32,2)+Math.pow((center[1]+.07)/.25,2)<1;
-      const isCap=center[1]>(-.68+1.14*front**3)&&!earOpening;
-      const u=world[1].map((v,k)=>v-world[0][k]),v=world[3].map((v,k)=>v-world[0][k]);
-      let normal=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
-      if(normal.reduce((a,n,k)=>a+n*center[k],0)<0)normal=normal.map(n=>-n);
-      const length=Math.hypot(...normal)||1;normal=normal.map(n=>n/length);
-      const nx=normal[0]*Math.cos(angle)+normal[2]*Math.sin(angle),nz=normal[2]*Math.cos(angle)-normal[0]*Math.sin(angle);
-      const light=.22+.78*Math.max(0,-.45*nx+.45*normal[1]+.77*nz);
-      const base=isCap?[82,91,109]:[149,118,94], gain=isCap?65:82;
-      const rgb=base.map(v=>Math.min(248,Math.round(v+gain*light)));
-      const fill=`rgb(${rgb.join(',')})`;
-      addFace(world,fill,fill);
-      faces[faces.length-1].cap=isCap&&nz>0;
-    }
-    // Ears and rear cap wiring are rendered in depth order with the head.
-    [-1,1].forEach(side=>{
-      for(let j=0;j<20;j++){
-        const a=j*Math.PI/10,b=(j+1)*Math.PI/10;
-        addFace([[side*.73,-.07,.06],[side*(.76+.055*Math.cos(a)),-.07+.21*Math.sin(a),.035],[side*(.76+.055*Math.cos(b)),-.07+.21*Math.sin(b),.035]],'#c6a58e');
-      }
-    });
-    faces.sort((a,b)=>a.z-b.z).forEach(({pts,fill,stroke})=>{h.beginPath();pts.forEach((p,i)=>i?h.lineTo(p[0],p[1]):h.moveTo(p[0],p[1]));h.closePath();h.fillStyle=fill;h.fill();if(stroke){h.strokeStyle=stroke;h.lineWidth=.4;h.stroke();}});
-    // Wires follow only the visible side of the black cap.
-    const visibleLine=points=>{
-      let segment=[];const flush=()=>{if(segment.length>1)curve(segment,angle,'#68798e',.8);segment=[];};
-      points.forEach(v=>{const p=projection(...v,angle);if(p[2]>.10)segment.push(v);else flush();});flush();
-    };
-    for(let j=0;j<12;j++){
-      const lon=j*Math.PI/6,low=Math.asin(-.66+1.12*Math.max(0,Math.cos(lon))**3);
-      visibleLine(Array.from({length:35},(_,i)=>surface(low+i/34*(Math.PI/2-low),lon,.025)));
-    }
-    [.62,1.05].forEach(lat=>visibleLine(Array.from({length:73},(_,j)=>surface(lat,j*Math.PI/36,.028))));
-    const electrode=[];
-    for(const lat of [.18,.61,.98,1.35])for(let j=0;j<(lat>1.2?4:8);j++){
-      const lon=j*Math.PI/(lat>1.2?2:4),v=surface(lat,lon,.032),p=projection(...v,angle);
-      if(p[2]>.05&&v[1]>(-.08+.54*Math.max(0,Math.cos(lon))**3))electrode.push(p);
-    }
-    electrode.sort((a,b)=>a[2]-b[2]).forEach(p=>{h.beginPath();h.ellipse(p[0],p[1],4.7,3.7,0,0,Math.PI*2);h.fillStyle='#151a24';h.fill();h.strokeStyle='#86909e';h.lineWidth=.7;h.stroke();h.beginPath();h.arc(p[0],p[1],1.3,0,Math.PI*2);h.fillStyle='#030711';h.fill();});
-    // Black chin strap appears only on the front-facing portion of the mannequin.
-    if(Math.cos(angle)>.25){
-      curve([[-.24,-.35,.64],[0,-.39,.71],[.24,-.35,.64]],angle,'rgba(118,132,142,.65)',1);
-      [-1,1].forEach(side=>curve([[side*.15,.16,.70],[side*.25,.17,.67],[side*.34,.14,.59]],angle,'rgba(102,121,135,.65)',1.5));
-    }
-    // Scan height is constrained to y=.48..98, above the open forehead.
-    // Clip to cap faces, so the band never paints the face, ears or neck.
-    const scanHeight=reduced?.74:.48+(Math.sin(time*.0014)*.5+.5)*.50;
-    const scanCenter=projection(0,scanHeight,0,angle),radius=Math.sqrt(1-scanHeight*scanHeight);
-    h.save();h.beginPath();
-    faces.filter(f=>f.cap).forEach(({pts})=>{
-      const area=pts.reduce((v,p,i)=>{const q=pts[(i+1)%pts.length];return v+p[0]*q[1]-q[0]*p[1];},0);
-      const ordered=area<0?[...pts].reverse():pts;
-      ordered.forEach((p,i)=>i?h.lineTo(p[0],p[1]):h.moveTo(p[0],p[1]));h.closePath();
-    });h.clip();
-    const band=h.createLinearGradient(0,scanCenter[1]-7,0,scanCenter[1]+7);band.addColorStop(0,'rgba(73,240,223,0)');band.addColorStop(.5,'rgba(73,240,223,.24)');band.addColorStop(1,'rgba(73,240,223,0)');h.fillStyle=band;h.fillRect(60,scanCenter[1]-7,280,14);
-    curve(Array.from({length:65},(_,i)=>{const a=i*Math.PI/32;return [.68*radius*Math.sin(a),scanHeight,.75*radius*Math.cos(a)];}),angle,'rgba(112,255,234,.9)',1.2);h.restore();
-    h.font='10px Segoe UI';h.fillStyle='#73aeb9';h.fillText('EEG CAP / CROWN SCAN',20,27);
+    if(!capPhoto.complete||!capPhoto.naturalWidth)return;
+    const scale=Math.min(400/capPhoto.naturalWidth,330/capPhoto.naturalHeight);
+    const w=capPhoto.naturalWidth*scale,ht=capPhoto.naturalHeight*scale,x=(400-w)/2,y=(330-ht)/2;
+    h.drawImage(capPhoto,x,y,w,ht);
+    h.save();h.translate(x,y);h.scale(w/479,ht/421);
+    // Clip the scan to the upper fabric cap in the supplied reference photo.
+    h.beginPath();h.moveTo(80,170);h.bezierCurveTo(88,102,137,50,222,39);h.bezierCurveTo(300,26,363,64,393,133);h.bezierCurveTo(402,155,407,177,402,202);h.lineTo(358,201);h.lineTo(293,185);h.lineTo(214,178);h.lineTo(148,174);h.closePath();h.clip();
+    const sy=reduced?115:48+(Math.sin(time*.0015)*.5+.5)*145;
+    const band=h.createLinearGradient(0,sy-12,0,sy+12);band.addColorStop(0,'rgba(66,255,230,0)');band.addColorStop(.5,'rgba(66,255,230,.38)');band.addColorStop(1,'rgba(66,255,230,0)');h.fillStyle=band;h.fillRect(65,sy-12,355,24);
+    h.beginPath();h.moveTo(65,sy);h.lineTo(420,sy);h.strokeStyle='#8bffe9';h.lineWidth=2;h.shadowColor='#4fffdc';h.shadowBlur=9;h.stroke();h.restore();
   }
   function drawScalp() {
     s.clearRect(0,0,400,330);
