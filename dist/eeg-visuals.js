@@ -11,7 +11,7 @@
     return stops[i].map((c,k)=>Math.round(c+(stops[i+1][k]-c)*t));
   };
   const capPhoto = new Image();
-  capPhoto.src='./assets/eeg-cap-transparent.png';
+  capPhoto.src='./assets/eeg-cap-outline.png';
   function drawHead(time) {
     h.clearRect(0,0,400,330);
     if(!capPhoto.complete||!capPhoto.naturalWidth)return;
