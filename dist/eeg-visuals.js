@@ -20,32 +20,92 @@
     h.beginPath(); points.forEach((v,i)=>{const p=projection(...v,angle); i?h.lineTo(p[0],p[1]):h.moveTo(p[0],p[1]);}); h.strokeStyle=stroke;h.lineWidth=width;h.stroke();
   }
   function drawHead(time) {
-    const angle=reduced?.4:time*.00032;
+    const angle=reduced?.38:time*.00024+.38;
     h.clearRect(0,0,400,330);
-    const glow=h.createRadialGradient(200,160,20,200,160,170);glow.addColorStop(0,'rgba(22,136,154,.2)');glow.addColorStop(1,'rgba(4,18,31,0)');h.fillStyle=glow;h.fillRect(0,0,400,330);
-    h.strokeStyle='rgba(54,224,208,.18)';h.beginPath();h.ellipse(200,289,115,21,0,0,Math.PI*2);h.stroke();
-    // Head surface is an actual 3D ellipsoid mesh with depth-shaded faces.
-    const surface=(lat,lon)=>[.7*Math.cos(lat)*Math.sin(lon),1.0*Math.sin(lat),.78*Math.cos(lat)*Math.cos(lon)];
+    const glow=h.createRadialGradient(200,150,25,200,160,160);glow.addColorStop(0,'rgba(28,92,123,.16)');glow.addColorStop(1,'rgba(4,18,31,0)');h.fillStyle=glow;h.fillRect(0,0,400,330);
     const faces=[];
-    for(let a=-7;a<8;a++) for(let b=0;b<28;b++) {
-      const pts=[[a,b],[a+1,b],[a+1,b+1],[a,b+1]].map(([i,j])=>projection(...surface(i*Math.PI/16,j*Math.PI/14),angle));
-      faces.push({pts,z:pts.reduce((sum,p)=>sum+p[2],0)/4});
+    const surface=(lat,lon,offset=0)=>{
+      const y=Math.sin(lat), narrowing=y<-.25?1+(y+.25)*.35:1;
+      const x=(.66+offset)*Math.cos(lat)*Math.sin(lon)*narrowing;
+      let z=(.73+offset)*Math.cos(lat)*Math.cos(lon);
+      if(Math.cos(lon)>.55) {
+        // Sculpted brow, recessed eye sockets, nasal bridge, lips and chin.
+        const g=(xc,yc,sx,sy)=>Math.exp(-Math.pow((x-xc)/sx,2)-Math.pow((y-yc)/sy,2));
+        z+=.27*g(0,-.08,.10,.24)+.07*g(0,.25,.36,.08);
+        z-=.08*(g(-.23,.16,.13,.09)+g(.23,.16,.13,.09));
+        z+=.045*g(0,-.36,.22,.06)+.06*g(0,-.57,.23,.12);
+      }
+      return [x,y,z];
+    };
+    const addFace=(world,fill,stroke)=>{const pts=world.map(v=>projection(...v,angle));faces.push({pts,z:pts.reduce((v,p)=>v+p[2],0)/pts.length,fill,stroke});};
+    // White display stand and neck, black collar matching the reference mannequin.
+    for(let j=0;j<48;j++){
+      const a=j*Math.PI/24,b=(j+1)*Math.PI/24;
+      for(const [lo,hi,r,fill] of [[-1.25,-1.13,.42,'#d6e0e5'],[-1.13,-1.02,.33,'#161b22'],[-1.02,-.72,.28,'#dce4e7']])
+        addFace([[r*Math.sin(a),lo,r*Math.cos(a)],[r*Math.sin(b),lo,r*Math.cos(b)],[r*Math.sin(b),hi,r*Math.cos(b)],[r*Math.sin(a),hi,r*Math.cos(a)]],fill);
     }
-    faces.sort((a,b)=>a.z-b.z).forEach(({pts,z})=>{h.beginPath();pts.forEach((p,i)=>i?h.lineTo(p[0],p[1]):h.moveTo(p[0],p[1]));h.closePath();h.fillStyle=`rgba(22,${Math.round(65+(z+1)*24)},${Math.round(83+(z+1)*31)},.82)`;h.fill();h.strokeStyle=`rgba(69,204,216,${z>0?.17:.05})`;h.lineWidth=.65;h.stroke();});
-    // Nose, chin, neck and ears establish a recognizable head silhouette.
-    curve([[-.11,.13,.76],[0,.17,1.03],[.11,.13,.76]],angle,'#72cbd1',1.7);
-    curve([[-.17,-.23,.71],[0,-.27,.78],[.17,-.23,.71]],angle,'rgba(132,214,218,.55)',1.3);
-    curve([[-.27,-.87,.12],[-.29,-1.12,.1],[-.56,-1.2,.08]],angle,'#448b9d',2);
-    curve([[.27,-.87,.12],[.29,-1.12,.1],[.56,-1.2,.08]],angle,'#448b9d',2);
-    [-1,1].forEach(side=>curve(Array.from({length:25},(_,i)=>{const a=i/24*Math.PI*2;return [side*(.7+.06*Math.cos(a)),-.03+.23*Math.sin(a),.02];}),angle,'#519dab',1.5));
-    // EEG cap meridians and latitude straps sit above the cranial surface.
-    for(let j=0;j<8;j++) curve(Array.from({length:41},(_,i)=>{const a=.04+i/40*1.46;return [.73*Math.cos(a)*Math.sin(j*Math.PI/4),1.04*Math.sin(a),.81*Math.cos(a)*Math.cos(j*Math.PI/4)];}),angle,'rgba(81,232,219,.62)',1.2);
-    [.25,.6,.93].forEach(lat=>curve(Array.from({length:57},(_,j)=>[.73*Math.cos(lat)*Math.sin(j*Math.PI/28),1.04*Math.sin(lat),.81*Math.cos(lat)*Math.cos(j*Math.PI/28)]),angle,'rgba(85,221,219,.45)',1.2));
-    const nodes=Object.entries(positions).slice(0,8).map(([name,[x,z]])=>{const y=Math.sqrt(Math.max(.02,1-x*x-z*z));return {name,p:projection(x*.73,y*1.04,z*.81,angle)};}).sort((a,b)=>a.p[2]-b.p[2]);
-    nodes.forEach(({p})=>{h.beginPath();h.arc(p[0],p[1],p[2]>0?4:2.5,0,Math.PI*2);h.fillStyle=p[2]>0?'#91fff0':'#287e8a';h.shadowColor='#51eed6';h.shadowBlur=p[2]>0?10:0;h.fill();h.shadowBlur=0;});
-    const scanY=reduced?158:78+(Math.sin(time*.0012)*.5+.5)*175;
-    const scan=h.createLinearGradient(0,scanY-18,0,scanY+4);scan.addColorStop(0,'rgba(54,224,208,0)');scan.addColorStop(1,'rgba(54,224,208,.15)');h.fillStyle=scan;h.fillRect(70,scanY-18,260,22);h.strokeStyle='rgba(110,255,225,.8)';h.beginPath();h.ellipse(200,scanY,100,12,0,0,Math.PI*2);h.stroke();
-    h.font='10px Segoe UI';h.fillStyle='#73aeb9';h.fillText('EEG CAP / 3D SCAN',20,27);h.fillText('结构示意',318,306);
+    for(let i=0;i<64;i++)for(let j=0;j<96;j++){
+      const lat=-Math.PI/2+i*Math.PI/64,lon=j*Math.PI/48;
+      const world=[[lat,lon],[lat+Math.PI/64,lon],[lat+Math.PI/64,lon+Math.PI/48],[lat,lon+Math.PI/48]].map(([a,b])=>surface(a,b));
+      const center=surface(lat+Math.PI/128,lon+Math.PI/96);
+      // Open forehead/face; fitted cap covers crown, sides and occiput.
+      const front=Math.max(0,Math.cos(lon+Math.PI/96));
+      const isCap=center[1]>(-.08+.54*front**3);
+      const u=world[1].map((v,k)=>v-world[0][k]),v=world[3].map((v,k)=>v-world[0][k]);
+      let normal=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
+      if(normal.reduce((a,n,k)=>a+n*center[k],0)<0)normal=normal.map(n=>-n);
+      const length=Math.hypot(...normal)||1;normal=normal.map(n=>n/length);
+      const nx=normal[0]*Math.cos(angle)+normal[2]*Math.sin(angle),nz=normal[2]*Math.cos(angle)-normal[0]*Math.sin(angle);
+      const light=.22+.78*Math.max(0,-.45*nx+.45*normal[1]+.77*nz);
+      const base=isCap?[13,17,23]:[118,132,142], gain=isCap?16:112;
+      const rgb=base.map(v=>Math.min(248,Math.round(v+gain*light)));
+      const fill=`rgb(${rgb.join(',')})`;
+      addFace(world,fill,fill);
+      faces[faces.length-1].cap=isCap&&nz>0;
+    }
+    // Ears and rear cap wiring are rendered in depth order with the head.
+    [-1,1].forEach(side=>{
+      for(let j=0;j<20;j++){
+        const a=j*Math.PI/10,b=(j+1)*Math.PI/10;
+        addFace([[side*.64,-.07,.06],[side*(.69+.055*Math.cos(a)),-.07+.21*Math.sin(a),.035],[side*(.69+.055*Math.cos(b)),-.07+.21*Math.sin(b),.035]],'#d3dce0');
+      }
+    });
+    faces.sort((a,b)=>a.z-b.z).forEach(({pts,fill,stroke})=>{h.beginPath();pts.forEach((p,i)=>i?h.lineTo(p[0],p[1]):h.moveTo(p[0],p[1]));h.closePath();h.fillStyle=fill;h.fill();if(stroke){h.strokeStyle=stroke;h.lineWidth=.4;h.stroke();}});
+    // Wires follow only the visible side of the black cap.
+    const visibleLine=points=>{
+      let segment=[];const flush=()=>{if(segment.length>1)curve(segment,angle,'#3773b5',1.05);segment=[];};
+      points.forEach(v=>{const p=projection(...v,angle);if(p[2]>.10)segment.push(v);else flush();});flush();
+    };
+    for(let j=0;j<12;j++){
+      const lon=j*Math.PI/6,low=Math.asin(-.07+.54*Math.max(0,Math.cos(lon))**3);
+      visibleLine(Array.from({length:35},(_,i)=>surface(low+i/34*(Math.PI/2-low),lon,.025)));
+    }
+    [.62,1.05].forEach(lat=>visibleLine(Array.from({length:73},(_,j)=>surface(lat,j*Math.PI/36,.028))));
+    const electrode=[];
+    for(const lat of [.18,.61,.98,1.35])for(let j=0;j<(lat>1.2?4:8);j++){
+      const lon=j*Math.PI/(lat>1.2?2:4),v=surface(lat,lon,.032),p=projection(...v,angle);
+      if(p[2]>.05&&v[1]>(-.08+.54*Math.max(0,Math.cos(lon))**3))electrode.push(p);
+    }
+    electrode.sort((a,b)=>a[2]-b[2]).forEach(p=>{h.beginPath();h.ellipse(p[0],p[1],4.7,3.7,0,0,Math.PI*2);h.fillStyle='#477acb';h.fill();h.strokeStyle='#86a8e8';h.lineWidth=.7;h.stroke();h.beginPath();h.arc(p[0],p[1],1.3,0,Math.PI*2);h.fillStyle='#193563';h.fill();});
+    // Black chin strap appears only on the front-facing portion of the mannequin.
+    if(Math.cos(angle)>.25){
+      curve([[-.57,.01,.30],[-.42,-.53,.42],[-.21,-.73,.40],[0,-.79,.39],[.21,-.73,.40],[.42,-.53,.42],[.57,.01,.30]],angle,'#151b24',9);
+      curve([[-.24,-.35,.64],[0,-.39,.71],[.24,-.35,.64]],angle,'rgba(118,132,142,.65)',1);
+      [-1,1].forEach(side=>curve([[side*.15,.16,.70],[side*.25,.17,.67],[side*.34,.14,.59]],angle,'rgba(102,121,135,.65)',1.5));
+    }
+    // Scan height is constrained to y=.48..98, above the open forehead.
+    // Clip to cap faces, so the band never paints the face, ears or neck.
+    const scanHeight=reduced?.74:.48+(Math.sin(time*.0014)*.5+.5)*.50;
+    const scanCenter=projection(0,scanHeight,0,angle),radius=Math.sqrt(1-scanHeight*scanHeight);
+    h.save();h.beginPath();
+    faces.filter(f=>f.cap).forEach(({pts})=>{
+      const area=pts.reduce((v,p,i)=>{const q=pts[(i+1)%pts.length];return v+p[0]*q[1]-q[0]*p[1];},0);
+      const ordered=area<0?[...pts].reverse():pts;
+      ordered.forEach((p,i)=>i?h.lineTo(p[0],p[1]):h.moveTo(p[0],p[1]));h.closePath();
+    });h.clip();
+    const band=h.createLinearGradient(0,scanCenter[1]-7,0,scanCenter[1]+7);band.addColorStop(0,'rgba(73,240,223,0)');band.addColorStop(.5,'rgba(73,240,223,.24)');band.addColorStop(1,'rgba(73,240,223,0)');h.fillStyle=band;h.fillRect(60,scanCenter[1]-7,280,14);
+    curve(Array.from({length:65},(_,i)=>{const a=i*Math.PI/32;return [.68*radius*Math.sin(a),scanHeight,.75*radius*Math.cos(a)];}),angle,'rgba(112,255,234,.9)',1.2);h.restore();
+    h.font='10px Segoe UI';h.fillStyle='#73aeb9';h.fillText('EEG CAP / CROWN SCAN',20,27);h.fillText('假人模特 · 结构示意',274,313);
   }
   function drawScalp() {
     s.clearRect(0,0,400,330);
