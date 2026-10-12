@@ -19,11 +19,11 @@
     const w=capPhoto.naturalWidth*scale,ht=capPhoto.naturalHeight*scale,x=(400-w)/2,y=(330-ht)/2;
     h.drawImage(capPhoto,x,y,w,ht);
     h.save();h.translate(x,y);h.scale(w/479,ht/421);
-    // Clip the scan to the upper fabric cap in the supplied reference photo.
-    h.beginPath();h.moveTo(80,170);h.bezierCurveTo(88,102,137,50,222,39);h.bezierCurveTo(300,26,363,64,393,133);h.bezierCurveTo(402,155,407,177,402,202);h.lineTo(358,201);h.lineTo(293,185);h.lineTo(214,178);h.lineTo(148,174);h.closePath();h.clip();
-    const sy=reduced?115:48+(Math.sin(time*.0015)*.5+.5)*145;
-    const band=h.createLinearGradient(0,sy-12,0,sy+12);band.addColorStop(0,'rgba(66,255,230,0)');band.addColorStop(.5,'rgba(66,255,230,.38)');band.addColorStop(1,'rgba(66,255,230,0)');h.fillStyle=band;h.fillRect(65,sy-12,355,24);
-    h.beginPath();h.moveTo(65,sy);h.lineTo(420,sy);h.strokeStyle='#8bffe9';h.lineWidth=2;h.shadowColor='#4fffdc';h.shadowBlur=9;h.stroke();h.restore();
+    // Sweep the full portrait, from crown through the neck.
+    h.beginPath();h.rect(0,0,479,421);h.clip();
+    const sy=reduced?210:(Math.sin(time*.0015)*.5+.5)*421;
+    const band=h.createLinearGradient(0,sy-12,0,sy+12);band.addColorStop(0,'rgba(66,255,230,0)');band.addColorStop(.5,'rgba(66,255,230,.38)');band.addColorStop(1,'rgba(66,255,230,0)');h.fillStyle=band;h.fillRect(0,sy-12,479,24);
+    h.beginPath();h.moveTo(0,sy);h.lineTo(479,sy);h.strokeStyle='#8bffe9';h.lineWidth=2;h.shadowColor='#4fffdc';h.shadowBlur=9;h.stroke();h.restore();
   }
   function drawScalp() {
     s.clearRect(0,0,400,330);
