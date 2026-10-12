@@ -21,3 +21,16 @@
 #currentPoint .point { fill: currentColor; stroke: currentColor; }
 #currentPoint .pulse { stroke: currentColor; }
 #currentPoint path { stroke: currentColor; }
+
+/* Give the warning content its natural height instead of clipping a fractional row. */
+.dashboard-grid{grid-template-columns:minmax(0,1fr) minmax(400px,1.15fr);align-items:start}
+.decision-column{grid-template-rows:auto auto;align-content:start}
+.alert-panel,.manifold-panel{min-height:max-content}
+.monitor-panel{min-height:0;align-self:start}
+.camera-frame{flex:none;height:clamp(280px,42vh,430px);min-height:0}
+.monitor-footer{grid-template-columns:repeat(3,minmax(0,1fr))}
+.operator-card{grid-column:1/-1}
+.decision-strip{min-height:48px}
+.decision-strip strong{display:block;line-height:1.6;overflow-wrap:anywhere}
+@media(max-width:1050px){.dashboard-grid{grid-template-columns:1fr}.camera-frame{height:320px}.decision-column{grid-template-columns:1fr 1fr;grid-template-rows:auto}}
+@media(max-width:760px){.decision-column{grid-template-columns:1fr}.camera-frame{height:280px}.monitor-footer{grid-template-columns:1fr 1fr}}
