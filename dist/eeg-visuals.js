@@ -50,7 +50,7 @@
       const center=surface(lat+Math.PI/128,lon+Math.PI/96);
       // Open forehead/face; fitted cap covers crown, sides and occiput.
       const front=Math.max(0,Math.cos(lon+Math.PI/96));
-      const earOpening=Math.abs(Math.sin(lon+Math.PI/96))>.94&&center[1]>-.31&&center[1]<.16;
+      const earOpening=Math.abs(Math.sin(lon+Math.PI/96))>.9&&Math.pow(Math.cos(lon+Math.PI/96)/.32,2)+Math.pow((center[1]+.07)/.25,2)<1;
       const isCap=center[1]>(-.68+1.14*front**3)&&!earOpening;
       const u=world[1].map((v,k)=>v-world[0][k]),v=world[3].map((v,k)=>v-world[0][k]);
       let normal=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
