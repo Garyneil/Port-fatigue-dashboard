@@ -135,7 +135,6 @@
       const valid=Array.isArray(names)&&names.length===8&&new Set(names).size===8&&names.every(n=>Object.prototype.hasOwnProperty.call(positions,n))&&Array.isArray(values)&&values.length===8&&values.every(Number.isFinite);
       data=valid?{names,values}:null;drawScalp();
       document.getElementById('scalpStatus').textContent=valid?(packet.demo?'仿真信号 · 相对幅值':'真实信号 · 相对幅值'):(packet?'电极位置未确认，暂不生成热图':'接口暂无数据传入');
-      document.getElementById('scalpCaption').textContent=valid?'颜色表示当前采样点的绝对幅值相对最大值；电极之间为插值。':'电极布局仅作示意；等待已确认名称的8通道数据。';
     }
   };
   drawScalp();
