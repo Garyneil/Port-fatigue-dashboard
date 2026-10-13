@@ -60,11 +60,12 @@ runtime:
 
 ```bash
 cd "$HOME/eeg-fatigue/Port-fatigue-dashboard"
-.venv/bin/python interface/eeg_bridge.py \
-  --collector "$HOME/eeg-fatigue/eeg-ecg-action-dataset-collector"
+python3 interface/start_jetson.py
 ```
 
-省略 `--port` 即使用 `config.yaml` 中的 `/dev/ttyTHS0`。终端保持运行；按 `Ctrl+C` 停止。此桥接独立读取串口，不与原采集程序共享同一个串口连接。
+新启动程序会自动找到旁边的采集项目和本项目的 `.venv` 环境，并检查依赖。若采集项目在其他目录，可追加 `--collector /实际路径`。
+
+启动后使用 `config.yaml` 中的 `/dev/ttyTHS0`。终端保持运行；按 `Ctrl+C` 停止。此桥接独立读取串口，不与原采集程序共享同一个串口连接。
 
 ## 4. 打开页面
 
