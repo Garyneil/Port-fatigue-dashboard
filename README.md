@@ -42,6 +42,54 @@
 - 每 2 秒更新一次仿真状态
 - 适配桌面大屏与移动端布局
 
+## Jetson Nano：从 GitHub 下载并启动脑电帽接口
+
+在 **Jetson 终端**执行。脑电帽已接到 `/dev/ttyTHS0`，启动程序直接读取采集项目的 `config.yaml`。启动前关闭其他占用该串口的程序。
+
+### 第一次下载与安装
+
+如果缺少 Git、pip 或 venv，先执行：
+
+```bash
+sudo apt-get update
+sudo apt-get install -y git python3-pip python3-venv
+```
+
+首次下载两个仓库、安装依赖并启动：
+
+```bash
+mkdir -p "$HOME/eeg-fatigue"
+cd "$HOME/eeg-fatigue"
+
+git clone https://github.com/Garyneil/Port-fatigue-dashboard.git
+git clone https://github.com/Garyneil/eeg-ecg-action-dataset-collector.git
+
+cd Port-fatigue-dashboard
+python3 -m venv .venv
+.venv/bin/python -m pip install -r interface/requirements.txt
+
+python3 interface/start_jetson.py
+```
+
+已下载的仓库无需重复克隆。如果采集项目在其他位置，可使用 `python3 interface/start_jetson.py --collector /实际的采集项目路径`。
+
+### 后续更新与启动
+
+```bash
+cd "$HOME/eeg-fatigue/Port-fatigue-dashboard"
+git pull --ff-only
+.venv/bin/python -m pip install -r interface/requirements.txt
+python3 interface/start_jetson.py
+```
+
+保持终端运行，按 `Ctrl+C` 停止。在 **Jetson 自己的浏览器**打开：
+
+**http://127.0.0.1:8765/**
+
+关闭“仿真演示”，脑电接口地址保持 `./api/eeg/latest`。收到串口数据后显示真实8通道数值；没有数据时显示等待提示。
+
+当前启动程序提供串口采集、JSON接口和本地网页，尚未接入疲劳模型推理，也未设置开机自启。云端网页不能直接读取 Jetson 本机串口。详细配置、接口检查和故障排查见 [Jetson 启动指南](interface/JETSON_QUICKSTART.md)。
+
 ## 本地运行
 
 连接实验室脑电帽的 Jetson Nano 请使用 [串口真实数据启动指南](interface/JETSON_QUICKSTART.md)，包括首次安装、每次启动和数据检查命令。
