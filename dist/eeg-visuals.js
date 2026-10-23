@@ -2,7 +2,7 @@
 (() => {
   const head = document.getElementById('headCanvas'), scalp = document.getElementById('scalpCanvas');
   const h = head.getContext('2d'), s = scalp.getContext('2d');
-  const positions = {F3:[-.43,-.48],Fz:[0,-.53],F4:[.43,-.48],C3:[-.58,0],Cz:[0,0],C4:[.58,0],P3:[-.43,.48],P4:[.43,.48],FT7:[-.87,-.34],FT8:[.87,-.34],T7:[-.94,0],T8:[.94,0],TP7:[-.86,.32],TP8:[.86,.32],CP1:[-.25,.26],CP2:[.25,.26],P1:[-.24,.5],Pz:[0,.56],P2:[.24,.5],PO3:[-.4,.72],POz:[0,.77],PO4:[.4,.72],O1:[-.3,.88],Oz:[0,.93],O2:[.3,.88]};
+  const positions = {F3:[-.43,-.48],Fz:[0,-.53],F4:[.43,-.48],C3:[-.58,0],Cz:[0,0],C4:[.58,0],P3:[-.43,.48],P4:[.43,.48],FT7:[-.87,-.34],FT8:[.87,-.34],T7:[-.94,0],T8:[.94,0],TP7:[-.86,.32],TP8:[.86,.32],CP1:[-.25,.26],CP2:[.25,.26],P1:[-.24,.5],Pz:[0,.56],P2:[.24,.5],PO3:[-.4,.72],POz:[0,.77],PO4:[.4,.72],O1:[-.3,.88],Oz:[0,.93],O2:[.3,.88],Fp1:[-.3,-.88],Fp2:[.3,-.88]};
   let data = null, frame = 0;
   const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const color = v => {
@@ -29,7 +29,7 @@
     s.clearRect(0,0,400,330);
     const cx=200,cy=162,r=116;
     s.fillStyle='#0a2130';s.beginPath();s.arc(cx,cy,r,0,Math.PI*2);s.fill();
-    if(data) {
+    if(data && data.names.length === 8) {
       const max=Math.max(...data.values.map(Math.abs),1e-12);
       const pixels=s.createImageData(232,232);
       for(let y=0;y<232;y++)for(let x=0;x<232;x++) {
@@ -50,9 +50,9 @@
   window.EEGVisual = {
     update(packet) {
       const names=packet?.channels, values=packet?.eeg;
-      const valid=Array.isArray(names)&&names.length===8&&new Set(names).size===8&&names.every(n=>Object.prototype.hasOwnProperty.call(positions,n))&&Array.isArray(values)&&values.length===8&&values.every(Number.isFinite);
+      const valid=Array.isArray(names)&&[2,8].includes(names.length)&&new Set(names).size===names.length&&names.every(n=>Object.prototype.hasOwnProperty.call(positions,n))&&Array.isArray(values)&&values.length===names.length&&values.every(Number.isFinite);
       data=valid?{names,values}:null;drawScalp();
-      document.getElementById('scalpStatus').textContent=valid?(packet.demo?'仿真信号 · 相对幅值':'真实信号 · 相对幅值'):(packet?'电极位置未确认，暂不生成热图':'接口暂无数据传入');
+      document.getElementById('scalpStatus').textContent=valid?(names.length===2?'双通道前额电极 · 不生成全脑热图':packet.demo?'仿真信号 · 相对幅值':'真实信号 · 相对幅值'):(packet?'电极位置未确认，暂不生成热图':'接口暂无数据传入');
     }
   };
   drawScalp();

@@ -7,9 +7,31 @@
   try { endpoint = localStorage.getItem('eegInterfaceUrl') || endpoint; } catch (_) {}
   $('interfaceUrl').value = endpoint;
   const number = v => typeof v === 'number' && Number.isFinite(v) ? v : null;
+  fetch('/api/model/verification',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.json();}).then(data=>{
+    $('replayVerification').textContent=data.replays.map(r=>`${r.true_label==='alert'?'清醒标签':'困倦标签'} → ${r.fatigue_tendency==='alert'?'倾向清醒':r.fatigue_tendency==='drowsy'?'倾向疲劳':'暂不确定'} ${Math.round(r.drowsy_model_score*100)} 分`).join('；');
+  }).catch(()=>{$('replayVerification').textContent='回放记录暂不可用';});
   const jitter = scale => (Math.random() - .48) * scale;
-  const width = (id, v) => { $(id).style.width = `${v == null ? 0 : Math.max(0, Math.min(100, v))}%`; };
   let episode = {active:false,warning:0,high:0,recovery:0,last:null,risk:null};
+  function renderCandidate(candidate) {
+    if (!candidate) return;
+    const status = candidate.status;
+    if (candidate.model?.includes('疲劳分类')) {
+      const active = status === 'fatigue_inference';
+      const label = {drowsy:'倾向疲劳',alert:'倾向清醒',uncertain:'暂不确定'}[candidate.fatigue_tendency];
+      $('candidateState').textContent = active ? label : status === 'calibrating' ? `初始参考采集中 · 剩余 ${candidate.remaining_seconds ?? '--'} 秒` : candidate.message || '等待头环数据';
+      $('candidateValue').textContent = active ? `${Math.round(candidate.drowsy_model_score*100)} / 100` : '--';
+      $('candidateNote').textContent = 'SADT 清醒/困倦行为标签训练 · 显示分类模型分数，尚未经概率校准；头环适用性仍在验证。';
+      return;
+    }
+    const labels = {waiting_for_data:'等待头环数据',calibrating:`个体基线校准中 · ${candidate.remaining_seconds ?? '--'} 秒`,candidate_inference:'候选模型正在运行',rate_out_of_range:'采样帧率不匹配 · 暂停输出',packet_loss:'数据缺帧较多 · 暂停输出',model_missing:'未找到模型文件',model_unavailable:'候选模型未加载'};
+    $('candidateState').textContent = labels[status] || candidate.message || '等待候选推理';
+    $('candidateValue').textContent = status === 'candidate_inference' && number(candidate.predicted_reaction_time_seconds) != null
+      ? `${candidate.predicted_reaction_time_seconds.toFixed(2)} s` : '--';
+    const pct = number(candidate.training_reference_percentile);
+    $('candidateNote').textContent = status === 'candidate_inference'
+      ? `反应时间代理；在训练集反应时参考分布约第 ${Math.round(pct ?? 0)} 百分位。此结果不是疲劳概率或疲劳判定，头环外部验证未完成。`
+      : `${candidate.message || '收集头环数据后开始校准。'}；输出为反应时间代理，不是疲劳概率，模型尚未完成头环外部验证。`;
+  }
   function resetEpisode(){episode={active:false,warning:0,high:0,recovery:0,last:null,risk:null};}
   function pauseEpisode(){episode.last=null;episode.risk=null;episode.high=0;episode.recovery=0;}
   function trackRisk(risk, now=Date.now()) {
@@ -27,8 +49,7 @@
     pauseEpisode();
     if(latest == null && episode.active && message === '接口暂无数据传入') message='数据中断 · 计时暂停';
     window.EEGVisual?.update(null);
-    ['riskScore','distanceValue','attentionValue','durationValue','signalQuality','responseTime','workDuration'].forEach(id => { $(id).textContent = '--'; });
-    ['distanceBar','attentionBar','durationBar'].forEach(id => width(id, null));
+    ['riskScore','signalQuality','responseTime','workDuration'].forEach(id => { $(id).textContent = '--'; });
     $('riskGauge').style.setProperty('--risk', 0);
     $('riskGauge').style.background = 'conic-gradient(from 220deg, rgba(101,139,157,.12) 0 280deg, transparent 0)';
     $('riskLabel').textContent = '等待数据'; $('riskLabel').style.color = '#7693a3';
@@ -43,14 +64,10 @@
     const risk = number(data.risk), distance = number(data.distance), attention = number(data.attention);
     const tracked=trackRisk(risk),duration=tracked.duration;
     $('riskScore').textContent = risk == null ? '--' : Math.round(risk);
-    $('distanceValue').textContent = distance == null ? '--' : distance.toFixed(2);
-    $('attentionValue').textContent = attention == null ? '--' : `${Math.round(attention)}%`;
-    $('durationValue').textContent = duration == null ? '--' : `${Math.round(duration)} s`;
     $('signalQuality').textContent = number(data.quality) == null ? '--' : Math.round(data.quality);
     $('responseTime').textContent = number(data.response) == null ? '--' : Math.round(data.response);
     const seconds = number(data.workSeconds);
     $('workDuration').textContent = seconds == null ? '--' : `${pad(Math.floor(seconds / 3600))}:${pad(Math.floor(seconds % 3600 / 60))}:${pad(Math.floor(seconds % 60))}`;
-    width('distanceBar', distance == null ? null : distance * 100); width('attentionBar', attention); width('durationBar', duration == null ? null : duration * 2);
     const high = risk != null && risk >= 82, warning = risk != null && risk >= 62;
     const color = risk == null ? '#7693a3' : high ? '#ff5e63' : warning ? '#ffb74d' : '#36e0d0';
     $('riskGauge').style.setProperty('--risk', risk ?? 0);
@@ -79,21 +96,42 @@
   }
   function acceptPacket(packet, token) {
     if (state.demo || token !== generation) return;
+    if (packet && packet.device === 'Sichiray Gemini') renderCandidate(packet.candidate_inference);
     const stamp = packet && Date.parse(packet.timestamp), age = Date.now() - stamp;
     const raw = packet && packet.eeg;
-    const validRaw = Array.isArray(raw) && raw.length === 8 && raw.every(v => number(v) != null);
+    const validRaw = Array.isArray(raw) && [2, 8].includes(raw.length) && raw.every(v => number(v) != null);
     const probability = packet && number(packet.fatigue_probability), validPrediction = probability != null && probability >= 0 && probability <= 1;
     if (!packet || packet.source !== 'real' || packet.has_data !== true || !Number.isFinite(stamp) || age < -2000 || age > 10000 || (!validRaw && !validPrediction)) { latest = null; receivedAt = 0; clearEvidence(); return; }
     latest = packet; receivedAt = stamp;
     window.EEGVisual?.update(packet);
-    $('eegSamples').textContent = validRaw ? raw.map((v,i) => `CH${i+1}: ${v.toFixed(2)}`).join('  ') : '--';
+    $('eegSamples').textContent = validRaw ? raw.map((v,i) => `${packet.channels?.[i] || `CH${i+1}`}: ${v.toFixed(2)}`).join('  ') : '--';
     const optional = (key, min, max) => { const v = number(packet[key]); return v != null && v >= min && v <= max ? v : null; };
     renderMetrics({risk: validPrediction ? probability * 100 : null, distance: optional('distance',0,100), attention: optional('attention',0,100), duration: optional('duration',0,86400), quality: optional('quality',0,100), response: optional('response_ms',0,60000), workSeconds: optional('work_seconds',0,864000), velocity: optional('velocity',0,100)});
     $('sourceStatus').textContent = validPrediction ? '真实脑电接口已接收 · 显示模型推理结果' : '真实脑电接口已接收 · 等待模型推理结果';
     $('systemStatus').textContent = '真实脑电数据已接入'; $('streamStatus').textContent = 'EEG · REAL DATA';
     $('operatorName').textContent = typeof packet.operator === 'string' ? packet.operator : '当前设备';
     $('calibrationStatus').textContent = packet.calibrated === true ? '接口报告：校准完成' : '尚未确认校准';
-    $('eegFormat').textContent = `8 通道${number(packet.sample_rate_hz) != null ? ` · ${packet.sample_rate_hz} Hz` : ''}`;
+    $('eegFormat').textContent = `${validRaw ? raw.length : "--"} 通道${number(packet.sample_rate_hz) != null ? ` · ${packet.sample_rate_hz} Hz` : ''}`;
+    if (packet.device === 'Sichiray Gemini') {
+      const wear = packet.wear_status === 'failed' ? '佩戴失败' : packet.wear_status === 'ok' ? '佩戴正常' : `佩戴状态待确认（${packet.wear_code}）`;
+      $('operatorName').textContent = 'Sichiray 双子座 · Fp1 / Fp2';
+      $('calibrationStatus').textContent = `${wear} · 电池 ${number(packet.battery_voltage) ?? '--'} V`;
+      $('eegFormat').textContent = `2 通道 · 硬件 250 Hz · 串口 ${number(packet.stream_rate_hz) ?? '--'} 包/s · ADC 原始计数`;
+      $('eegSamples').textContent += ` | 设备专注度 ${number(packet.device_attention) ?? '--'} · 放松度 ${number(packet.device_relaxation) ?? '--'}（设备原值）`;
+      $('sourceStatus').textContent = `头环实时读取 · ${wear} · 已接收 ${packet.sample_count} 包`;
+      const candidate = packet.candidate_inference;
+      const active = candidate?.status === 'fatigue_inference';
+      const score = active ? number(candidate.drowsy_model_score) : null;
+      const label = {drowsy:'倾向疲劳',alert:'倾向清醒',uncertain:'暂不确定'}[candidate?.fatigue_tendency];
+      $('riskAdvice').textContent = active ? 'SADT 双通道分类器 · 头环实验性结果' : candidate?.message || '等待疲劳分类结果';
+      $('riskScore').textContent = score == null ? '--' : Math.round(score*100);
+      $('riskLabel').textContent = active ? label : '等待判定';
+      const color = candidate?.fatigue_tendency === 'drowsy' ? '#ffb74d' : candidate?.fatigue_tendency === 'alert' ? '#36e0d0' : '#7693a3';
+      $('riskLabel').style.color = color;
+      $('riskGauge').style.background = `conic-gradient(from 220deg, ${color} calc(${score == null ? 0 : score*100} * 2.8deg), rgba(101,139,157,.12) 0 280deg, transparent 0)`;
+      $('decisionText').textContent = active ? `${label} · 分类分数 ${Math.round(score*100)}/100 · 实验结果` : candidate?.message || '等待模型所需数据';
+    }
+
   }
   function disconnect() {
     resetEpisode();
@@ -145,5 +183,5 @@
     if (!state.demo && latest && Date.now() - receivedAt > 10000) { latest = null; receivedAt = 0; clearEvidence(); }
   }
   clearEvidence(); clock(); connect(); setInterval(clock,1000);
-  setInterval(() => { if (state.demo) simulate(); else if (!socket) { if (/^wss?:/i.test(endpoint)) connect(); else poll(); } },2000);
+  setInterval(() => { if (state.demo) simulate(); else if (!socket) { if (/^wss?:/i.test(endpoint)) connect(); else poll(); } },250);
 })();

@@ -77,16 +77,17 @@
 
           <div class="source-panel">
             <p id="sourceStatus" role="status" aria-live="polite">接口暂无数据传入</p>
-            <div class="eeg-samples" id="eegSamples" aria-label="八通道脑电实时数值">--</div>
+            <div class="eeg-samples" id="eegSamples" aria-label="脑电实时数值">--</div>
             <form id="interfaceForm">
               <label for="interfaceUrl">脑电接口地址</label>
               <div class="interface-controls"><input id="interfaceUrl" type="text" placeholder="输入 HTTPS 或 WSS 接口地址" aria-describedby="interfaceHint"><button type="submit">连接</button></div>
               <small id="interfaceHint">真实模式读取设备接口；仿真模式暂停接口读取</small>
             </form>
+            <div class="interface-controls" style="margin-top:10px"><button id="serialToggle" type="button" disabled>检查串口状态…</button><small id="serialStatus" role="status" aria-live="polite">正在连接本机串口服务</small></div>
           </div>
           <div class="gauge-row">
             <div class="risk-gauge" id="riskGauge" style="--risk:0">
-              <div class="gauge-inner"><strong id="riskScore">--</strong><span>/ 100</span><small>疲劳风险</small></div>
+              <div class="gauge-inner"><strong id="riskScore">--</strong><span>/ 100</span><small>疲劳倾向分数</small></div>
             </div>
             <div class="risk-copy">
               <p>当前判定</p>
@@ -95,24 +96,27 @@
             </div>
           </div>
 
-          <div class="evidence-list">
-            <div class="evidence-item"><div><span>注意稳定度</span><b id="attentionValue">--</b></div><div class="mini-track"><i id="attentionBar" style="width:0%"></i></div><small>越低表示注意波动越明显</small></div>
-            <div class="evidence-item"><div><span>流形偏离度 <em>d<sub>R</sub></em></span><b id="distanceValue">--</b></div><div class="mini-track"><i id="distanceBar" style="width:0%"></i></div><small>当前协方差到清醒参考中心的距离</small></div>
-            <div class="evidence-item"><div><span>预警持续时间</span><b id="durationValue">--</b></div><div class="mini-track amber"><i id="durationBar" style="width:0%"></i></div><small>低于58持续10秒后结束预警</small></div>
+          <div class="candidate-card" aria-live="polite">
+            <div><strong>SADT 双通道疲劳分类</strong><span id="candidateState">等待头环数据</span></div>
+            <b id="candidateValue">--</b>
+            <small id="candidateNote">清醒／疲劳倾向分类 · 尚未完成头环外部验证。</small>
           </div>
+
 
           <div class="decision-strip" id="decisionStrip">
             <div class="decision-icon">!</div>
-            <div><span>系统决策</span><strong id="decisionText">接口暂无数据传入</strong></div>
+            <div><span>模型输出</span><strong id="decisionText">接口暂无数据传入</strong></div>
           </div>
         </section>
 
         <section class="manifold-panel panel" aria-labelledby="manifold-title">
           <div class="panel-heading compact manifold-heading">
-            <div><span class="section-index">03</span><div><h2 id="manifold-title">黎曼流形证据边界与高风险区间标定</h2><p>RIEMANNIAN EVIDENCE BOUNDARY</p></div></div>
+            <div><span class="section-index">03</span><div><h2 id="manifold-title">模型验证与判定说明</h2><p>SADT · SUBJECT-HELD-OUT VALIDATION</p></div></div>
           </div>
 
-          <div class="chart-wrap">
+          <div class="candidate-card"><div><strong>按被试独立验证 · 20 人 / 6,939 个窗口</strong><span>平均平衡准确率 73.8% · 平均 AUC 0.817</span></div><small>Fp1/Fp2 分频带协方差 → 黎曼切空间 → 逻辑回归。验证仅覆盖清醒和困倦两端样本。</small></div>
+          <div class="candidate-card"><div><strong>公开脑电回放验证 · 非当前头环数据</strong><span id="replayVerification">正在读取实际推理记录…</span></div><small>使用未参与训练的被试原始脑电，经过预处理、协方差、切空间和分类器完成回放。</small></div>
+          <div class="chart-wrap" hidden>
             <svg id="manifoldChart" viewBox="0 0 520 270" role="img" aria-label="疲劳风险分数与流形速度构成的风险分区图">
               <defs>
                 <linearGradient id="safeZone" x1="0" x2="1"><stop offset="0" stop-color="#0cc8d8" stop-opacity=".18"/><stop offset="1" stop-color="#0cc8d8" stop-opacity=".03"/></linearGradient>
@@ -132,16 +136,26 @@
             </svg>
           </div>
 
-          <div class="boundary-legend">
+          <div class="boundary-legend" hidden>
             <div><span class="legend-mark safe"></span><p><strong>正常域</strong><small>风险分数 &lt; 62</small></p></div>
             <div><span class="legend-mark warn"></span><p><strong>预警域</strong><small>62 ≤ 风险分数 &lt; 82</small></p></div>
             <div><span class="legend-mark risk"></span><p><strong>高风险域</strong><small>风险分数 ≥ 82</small></p></div>
           </div>
-          <p class="chart-note"><span>i</span> 风险分数与02当前判定同步；持续高风险满30秒后建议交班复核。</p>
+          <p class="chart-note"><span>i</span> 分数≤40：倾向清醒；≥60：倾向疲劳；中间显示暂不确定。这是预设的显示缓冲区，不是验证过的第三类；分数未经概率校准。</p>
         </section>
       </aside>
+      <section class="wave-panel panel" aria-labelledby="wave-title">
+        <div class="panel-heading"><div><span class="section-index">04</span><div><h2 id="wave-title">头环实时波形</h2><p>FILTERED EEG · ATTENTION · RELAXATION</p></div></div><span id="waveStatus" role="status">等待头环数据</span></div>
+        <div class="wave-toolbar"><label>显示窗口 <select id="waveWindow"><option value="10">10 秒</option><option value="30" selected>30 秒</option><option value="60">60 秒</option></select></label><span>按实际接收时间绘制 · 佩戴码 0 区段标红</span></div>
+        <div class="wave-card"><div class="visual-title"><strong>滤波后 EEG · Fp1 / Fp2</strong><span id="filteredValue">--</span></div><canvas id="filteredWave" role="img" aria-label="Fp1和Fp2滤波后脑电实时曲线"></canvas><small><span style="color:#38dfc6">● Fp1</span>　<span style="color:#58aaff">● Fp2</span>　设备滤波输出（单位待核实）· 纵轴自动缩放</small></div>
+        <div class="metric-waves">
+          <div class="wave-card"><div class="visual-title"><strong>注意力</strong><span id="attentionWaveValue">--</span></div><canvas id="attentionWave" role="img" aria-label="设备注意力实时曲线，0至100"></canvas></div>
+          <div class="wave-card"><div class="visual-title"><strong>放松度</strong><span id="relaxationWaveValue">--</span></div><canvas id="relaxationWave" role="img" aria-label="设备放松度实时曲线，0至100"></canvas></div>
+        </div>
+        <p class="chart-note">注意力与放松度为设备原值，非疲劳概率。佩戴失败时可能输出默认值；断流处不连线。只显示真实串口数据。</p>
+      </section>
       <section class="brain-panel panel" aria-labelledby="brain-title">
-        <div class="panel-heading"><div><span class="section-index">04</span><div><h2 id="brain-title">脑电空间可视化</h2><p>EEG CAP &amp; SCALP TOPOGRAPHY</p></div></div><span class="sim-badge">8 CHANNELS</span></div>
+        <div class="panel-heading"><div><span class="section-index">05</span><div><h2 id="brain-title">脑电空间可视化</h2><p>EEG CAP &amp; SCALP TOPOGRAPHY</p></div></div></div>
         <div class="brain-visual-grid">
           <div class="brain-view"><div class="visual-title"><strong>脑电帽扫描</strong><span>头部扫描</span></div><canvas id="headCanvas" width="400" height="330" role="img" aria-label="用户提供的脑电帽图片及帽体扫描线"></canvas></div>
           <div class="brain-view"><div class="visual-title"><strong>脑电信号头皮热图</strong><span id="scalpStatus" role="status">接口暂无数据传入</span></div><canvas id="scalpCanvas" width="400" height="330" role="img" aria-label="八电极头皮信号相对幅值分布图"></canvas><div class="heat-legend"><span>低</span><i></i><span>高</span></div></div>
@@ -149,9 +163,11 @@
       </section>
     </main>
 
-    <footer class="footerbar"><span><i></i><span id="streamStatus">EEG · WAITING</span></span><span>参考模型：SEED-VIG-RA-TLR-v1.0</span><span><span id="dataMode">数据模式：真实接口</span></span><span>刷新周期：2 s</span></footer>
+    <footer class="footerbar"><span><i></i><span id="streamStatus">EEG · WAITING</span></span><span>SADT Fp1/Fp2 · 50 Hz 黎曼疲劳分类 v1 · 实验</span><span><span id="dataMode">数据模式：真实接口</span></span><span>刷新周期：250 ms</span></footer>
   </div>
   <script src="./eeg-visuals.js"></script>
   <script src="./app.js"></script>
+<script src="./serial-control.js"></script>
+<script src="./waveforms.js"></script>
 </body>
 </html>

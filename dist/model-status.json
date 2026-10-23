@@ -1,12 +1,14 @@
 {
-  "model": "SEED-VIG-RA-TLR-v1.0",
-  "status": "trained-offline",
-  "frontend_input": "simulation",
-  "method": "Riemannian alignment + tangent-space logistic regression",
-  "training_samples": 4566,
-  "training_subjects": 12,
-  "loso_balanced_accuracy_mean": 0.8914486624,
-  "loso_roc_auc_mean": 0.9432841184,
+  "model": "SADT-Fp1Fp2-Riemann-Fatigue-v1",
+  "status": "trained-and-heldout-raw-replay-verified",
+  "frontend_input": "real-headset-serial",
+  "method": "three-band covariance + initial-reference Riemannian alignment + tangent-space logistic regression",
+  "training_samples": 6939,
+  "training_subjects": 20,
+  "loso_balanced_accuracy_mean": 0.7384976975,
+  "loso_roc_auc_mean": 0.8171678568,
   "deployment_ready": false,
-  "note": "Awaiting port-operator EEG calibration and external validation."
+  "probability_calibrated": false,
+  "hardware_validated": false,
+  "note": "RT-defined alert/drowsy extreme classes; public raw EEG replay verified. Current headset live classification awaits fresh serial frames."
 }
