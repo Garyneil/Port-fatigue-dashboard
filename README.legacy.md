@@ -1,0 +1,161 @@
+# Port Fatigue Dashboard
+
+基于黎曼流形与跨被试校准的码头作业人员疲劳度检测研究原型。
+
+在线演示地址：<https://garyneil.github.io/Port-fatigue-dashboard/>
+
+项目正在从界面演示逐步升级为真实数据原型。目前已经加入基于公开 SEED-VIG 数据训练的 `RA + Tangent-LR` 模型参数、可复现训练代码和个人基线校准推理代码；前端默认读取真实EEG接口，无数据时显示等待提示；开启“仿真演示”后才使用模拟数据。串口桥接说明见 [真实脑电接口](interface/README.md)。
+
+## 当前模型状态
+
+- 数据：Extracted SEED-VIG，12名受试者、4566段EEG。
+- 输入：17通道、128 Hz、3秒窗口。
+- 方法：收缩协方差、无监督黎曼对齐、单位点切空间、逻辑回归。
+- 验证：原17通道结果采用LOSO，但留出被试中心由其全部无标签窗口估计，属于离线传导式校准。
+- 全量离线结果：平衡准确率 `0.891 ± 0.053`，F1 `0.892 ± 0.054`，ROC-AUC `0.943 ± 0.044`。
+- 权重：`model/artifacts/seed_vig_ra_tangent_lr_v1.npz`。
+- 推理：新操作员需先提供无标签个人基线，再输出每个窗口的疲劳概率。
+
+详细说明见 [`model/README.md`](model/README.md)。
+
+## 新增：独立8通道模型（2026-10-10）
+
+已训练并保存8通道、36维切空间模型，完成12折LOSO及模型重载实测推理。输入实际电极为 `FT7, CP1, FT8, P1, Pz, CP2, PO3, P2`；它们与实验室8电极不相同，不能直接替换。
+
+固定20个无标签校准窗口后冻结个人中心，4326个窗口用于评价。平衡准确率 `0.8518 ± 0.0827`、F1 `0.8541 ± 0.0761`、ROC-AUC `0.9138 ± 0.0604`。数据缺少时间信息，只能确认无预测数据泄漏，不能声称前瞻时间验证或实验室泛化性能。
+
+详见 [8通道模型、重现训练和实测输出](model/seed_vig_8channel/README.md) 及 [更新日志](CHANGELOG.md)。
+
+## 数据来源与许可
+
+模型使用 Jian Cui 发布的 [Extracted SEED-VIG](https://doi.org/10.6084/m9.figshare.26104987.v1)（CC BY 4.0）训练。仓库不分发原始EEG数据，仅提交训练代码、评估结果和派生模型参数。使用数据或结果时请同时引用SEED-VIG原始论文及上述Figshare数据记录。
+
+## 页面功能
+
+当前疲劳评估界面仅展示EEG证据，已移除操作员摄像头与PERCLOS模块。已加入默认关闭的“仿真演示”开关，真实模式不以模拟值填充缺失数据。
+
+- 码头岸桥、集装箱与 AGV 仿真实时监控画面
+- 5秒循环的分层港口监控动画：静止背景与岸桥轻微水平往返运动
+- 疲劳风险分数及分级预警
+- 注意稳定度、黎曼距离和风险持续时间联动显示
+- 黎曼流形证据边界、预警域和高风险域可视化
+- 每 2 秒更新一次仿真状态
+- 适配桌面大屏与移动端布局
+
+## 实验室脑电帽：实际通道映射（2026-10-13）
+
+以下映射由使用者在实验室逐路核对后提供。设备按 **PA0 → PA7** 顺序发送前8个脑电字段；电极名中的 `CZ`、`FZ` 统一写为 `Cz`、`Fz`。
+
+| 串口脑电字段 | 采集引脚 | 头皮电极 |
+|---|---|---|
+| EEG1 | PA0 | P4 |
+| EEG2 | PA1 | C4 |
+| EEG3 | PA2 | F4 |
+| EEG4 | PA3 | Cz |
+| EEG5 | PA4 | F3 |
+| EEG6 | PA5 | P3 |
+| EEG7 | PA6 | Fz |
+| EEG8 | PA7 | C3 |
+
+JSON接口中的通道名称按实际发送顺序填写：
+
+```json
+{
+  "channels": ["P4", "C4", "F4", "Cz", "F3", "P3", "Fz", "C3"]
+}
+```
+
+`eeg` 数组同样保持 PA0～PA7 顺序，与 `channels` 一一对应；不要只重新排列名称而保留数值顺序。
+
+现场收到的帧为 **14字节**：`0xFF + 8个脑电数据字节 + 4个身体数据字节 + 0xFE`。前8个字段已确认对应上述头部电极；后4个字段为身体心电、皮电数据，具体对应关系待确认。当前显示的是原始0～255字节值，正负编码、电压换算和实际采样率仍待核实。
+
+此现场协议与既有 `serial12hex` 采集代码假设的26字节、12个有符号16位数值协议不同。下方 `start_jetson.py` / `eeg_bridge.py` 的旧采集流程尚未适配现场14字节协议，不能直接当作这台设备的可用启动方案。已在Jetson上验证的离线 `eeg_server.py` 使用14字节解析和 `pyserial` 读取；接收协议确认不等于疲劳模型推理已验证。
+
+实验室电极与公开SEED-VIG模型的电极不同，通道映射确认后仍不能直接替换模型输入。
+
+## Jetson Nano：从 GitHub 下载并启动脑电帽接口
+
+在 **Jetson 终端**执行。脑电帽已接到 `/dev/ttyTHS0`，启动程序直接读取采集项目的 `config.yaml`。启动前关闭其他占用该串口的程序。
+
+### 第一次下载与安装
+
+如果缺少 Git、pip 或 venv，先执行：
+
+```bash
+sudo apt-get update
+sudo apt-get install -y git python3-pip python3-venv
+```
+
+首次下载两个仓库、安装依赖并启动：
+
+```bash
+mkdir -p "$HOME/eeg-fatigue"
+cd "$HOME/eeg-fatigue"
+
+git clone https://github.com/Garyneil/Port-fatigue-dashboard.git
+git clone https://github.com/Garyneil/eeg-ecg-action-dataset-collector.git
+
+cd Port-fatigue-dashboard
+python3 -m venv .venv
+.venv/bin/python -m pip install -r interface/requirements.txt
+
+python3 interface/start_jetson.py
+```
+
+已下载的仓库无需重复克隆。如果采集项目在其他位置，可使用 `python3 interface/start_jetson.py --collector /实际的采集项目路径`。
+
+### 后续更新与启动
+
+```bash
+cd "$HOME/eeg-fatigue/Port-fatigue-dashboard"
+git pull --ff-only
+.venv/bin/python -m pip install -r interface/requirements.txt
+python3 interface/start_jetson.py
+```
+
+保持终端运行，按 `Ctrl+C` 停止。在 **Jetson 自己的浏览器**打开：
+
+**http://127.0.0.1:8765/**
+
+关闭“仿真演示”，脑电接口地址保持 `./api/eeg/latest`。收到串口数据后显示真实8通道数值；没有数据时显示等待提示。
+
+当前启动程序提供串口采集、JSON接口和本地网页，尚未接入疲劳模型推理，也未设置开机自启。云端网页不能直接读取 Jetson 本机串口。详细配置、接口检查和故障排查见 [Jetson 启动指南](interface/JETSON_QUICKSTART.md)。
+
+## 本地运行
+
+连接实验室脑电帽的 Jetson Nano 请使用 [串口真实数据启动指南](interface/JETSON_QUICKSTART.md)，包括首次安装、每次启动和数据检查命令。
+
+项目不依赖构建工具，可直接打开：
+
+```text
+dist/index.html
+```
+
+也可以在项目目录启动静态服务器：
+
+```bash
+python -m http.server 8000 --directory dist
+```
+
+随后访问 `http://localhost:8000`。
+
+## 项目结构
+
+```text
+dist/
+├── index.html    # 页面结构
+├── styles.css    # 科技化大屏样式与响应式布局
+├── app.js        # 风险数据仿真
+└── assets/       # 港口背景与透明岸桥动画图层
+
+model/
+├── artifacts/    # 权重、模型元数据与LOSO指标
+├── riemann_core.py
+├── train_seed_vig.py
+└── infer.py
+```
+
+## 说明
+
+界面中的风险边界、阈值和人员状态仍为仿真数据。已训练模型来源于模拟驾驶数据，尚未使用码头现场人员完成外部验证，只用于原型展示和方法验证，不能直接作为实际安全决策依据。
+

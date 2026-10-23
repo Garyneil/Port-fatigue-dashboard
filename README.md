@@ -1,161 +1,69 @@
 # Port Fatigue Dashboard
 
-基于黎曼流形与跨被试校准的码头作业人员疲劳度检测研究原型。
+双通道额区脑电与黎曼流形疲劳倾向识别研究原型
 
-在线演示地址：<https://garyneil.github.io/Port-fatigue-dashboard/>
+A research prototype for fatigue-tendency recognition using dual-channel frontal EEG and Riemannian geometry.
 
-项目正在从界面演示逐步升级为真实数据原型。目前已经加入基于公开 SEED-VIG 数据训练的 `RA + Tangent-LR` 模型参数、可复现训练代码和个人基线校准推理代码；前端默认读取真实EEG接口，无数据时显示等待提示；开启“仿真演示”后才使用模拟数据。串口桥接说明见 [真实脑电接口](interface/README.md)。
+[在线前端 / Dashboard](https://garyneil.github.io/Port-fatigue-dashboard/) · [头环接口 / Headset interface](interface/SICHIRAY_README.md) · [历史方案 / Legacy documentation](README.legacy.md)
 
-## 当前模型状态
+> GitHub Pages 提供静态前端。真实头环采集与模型推理需要本地服务。当前推理模块与模型资源从本地 `E:\CODEX Projects\SADT-Fp1Fp2` 加载，仅克隆此仓库不能直接运行完整 SADT 推理或复现训练。
 
-- 数据：Extracted SEED-VIG，12名受试者、4566段EEG。
-- 输入：17通道、128 Hz、3秒窗口。
-- 方法：收缩协方差、无监督黎曼对齐、单位点切空间、逻辑回归。
-- 验证：原17通道结果采用LOSO，但留出被试中心由其全部无标签窗口估计，属于离线传导式校准。
-- 全量离线结果：平衡准确率 `0.891 ± 0.053`，F1 `0.892 ± 0.054`，ROC-AUC `0.943 ± 0.044`。
-- 权重：`model/artifacts/seed_vig_ra_tangent_lr_v1.npz`。
-- 推理：新操作员需先提供无标签个人基线，再输出每个窗口的疲劳概率。
+> GitHub Pages hosts the static frontend. Live acquisition and inference require a local service. Inference modules and model resources currently load from the local `E:\CODEX Projects\SADT-Fp1Fp2` directory; cloning this repository alone does not provide standalone SADT inference or reproduce training.
 
-详细说明见 [`model/README.md`](model/README.md)。
+## 中文说明
 
-## 新增：独立8通道模型（2026-10-10）
+### 系统概述
 
-已训练并保存8通道、36维切空间模型，完成12折LOSO及模型重载实测推理。输入实际电极为 `FT7, CP1, FT8, P1, Pz, CP2, PO3, P2`；它们与实验室8电极不相同，不能直接替换。
+本系统面向码头远程操控作业中的持续注意负荷与疲劳风险监测需求，构建了一套融合**双通道额区脑电采集、分频带协方差表征、黎曼流形对齐与切空间分类**的实时分析方法。系统以左额 Fp1、右额 Fp2 两路脑电为输入，将公开驾驶疲劳数据上的模型训练与便携式头环的在线采集相结合，形成从生理信号获取、信号质量控制、特征提取到疲劳倾向判别和前端可视化的完整处理链路。
 
-固定20个无标签校准窗口后冻结个人中心，4326个窗口用于评价。平衡准确率 `0.8518 ± 0.0827`、F1 `0.8541 ± 0.0761`、ROC-AUC `0.9138 ± 0.0604`。数据缺少时间信息，只能确认无预测数据泄漏，不能声称前瞻时间验证或实验室泛化性能。
+### 数据与标签构建
 
-详见 [8通道模型、重现训练和实测输出](model/seed_vig_8channel/README.md) 及 [更新日志](CHANGELOG.md)。
+在数据与标签构建方面，采用 SADT 驾驶数据中的 Fp1/Fp2 原始脑电，以驾驶反应时相对于个体基线的变化建立清醒与困倦两端状态标签。该策略以可观测的行为表现作为监督依据，使模型学习脑电活动与警觉性下降之间的统计关联。训练与评估共覆盖 **20 名被试、6,939 个脑电窗口**，并采用按被试独立的交叉验证，避免同一被试的数据同时进入训练集与测试集，使评估结果更能反映模型面对新个体时的泛化能力。
 
-## 数据来源与许可
+### 信号处理
 
-模型使用 Jian Cui 发布的 [Extracted SEED-VIG](https://doi.org/10.6084/m9.figshare.26104987.v1)（CC BY 4.0）训练。仓库不分发原始EEG数据，仅提交训练代码、评估结果和派生模型参数。使用数据或结果时请同时引用SEED-VIG原始论文及上述Figshare数据记录。
+在信号处理方面，离线训练与在线推理采用统一的预处理流程，将数据重采样至模型使用的 **50 Hz**，并分别提取 δ、θ、α 频段信号。这里的 50 Hz 是模型处理频率；头环标称硬件采样率为 **250 Hz**，在线数据是否连续、串口是否存在缺帧仍需单独检查。系统针对各频段构建双通道收缩协方差矩阵，联合描述左右额区脑电的能量变化与通道间协同关系。收缩估计用于改善短时间窗内协方差计算的数值稳定性，为后续流形分析提供正定矩阵输入。
 
-## 页面功能
+### 黎曼特征与分类
 
-当前疲劳评估界面仅展示EEG证据，已移除操作员摄像头与PERCLOS模块。已加入默认关闭的“仿真演示”开关，真实模式不以模拟值填充缺失数据。
+在特征建模方面，系统将协方差矩阵视为对称正定矩阵流形上的数据点，利用黎曼几何处理其非欧氏结构。通过个体初始参考进行黎曼对齐，减轻不同个体基础脑电水平及采集条件差异造成的分布偏移；随后将对齐后的矩阵映射至切空间，形成可供分类器使用的向量特征。最终利用逻辑回归建立清醒与困倦之间的判别边界，实现从多频段脑电空间结构到疲劳倾向分数的映射。**这一方法的核心，是将双通道脑电的频段能量与空间关联纳入统一表征，并结合个体参考进行适配。**
 
-- 码头岸桥、集装箱与 AGV 仿真实时监控画面
-- 5秒循环的分层港口监控动画：静止背景与岸桥轻微水平往返运动
-- 疲劳风险分数及分级预警
-- 注意稳定度、黎曼距离和风险持续时间联动显示
-- 黎曼流形证据边界、预警域和高风险域可视化
-- 每 2 秒更新一次仿真状态
-- 适配桌面大屏与移动端布局
+### 在线部署与可视化
 
-## 实验室脑电帽：实际通道映射（2026-10-13）
+在在线部署方面，系统通过串口持续接收 Sichiray 双子座头环数据，在滑动时间窗内完成质量检查、特征计算与分类更新。质量控制综合考虑佩戴状态、数据连续性、缺帧情况、信号平直及异常幅值等因素；当输入不满足推理条件时，暂停更新判定，并在前端显示相应状态。前端同步呈现双通道滤波 EEG 波形、设备注意力与放松度曲线，以及模型疲劳倾向分数，为现场观察和后续实验复核提供直观依据。其中，注意力和放松度保留为设备输出指标，与模型的疲劳判别结果分别展示。
 
-以下映射由使用者在实验室逐路核对后提供。设备按 **PA0 → PA7** 顺序发送前8个脑电字段；电极名中的 `CZ`、`FZ` 统一写为 `Cz`、`Fz`。
+### 验证结果与适用边界
 
-| 串口脑电字段 | 采集引脚 | 头皮电极 |
-|---|---|---|
-| EEG1 | PA0 | P4 |
-| EEG2 | PA1 | C4 |
-| EEG3 | PA2 | F4 |
-| EEG4 | PA3 | Cz |
-| EEG5 | PA4 | F3 |
-| EEG6 | PA5 | P3 |
-| EEG7 | PA6 | Fz |
-| EEG8 | PA7 | C3 |
+目前，模型在按被试独立验证中取得 **73.8% 的平均平衡准确率和 0.817 的平均 AUC**，并已通过未参与训练被试的原始脑电回放及头环实时数据推理链路验证。这些结果说明，双通道额区脑电结合黎曼几何特征具有一定的清醒与困倦区分能力，也为低通道、便携式疲劳监测提供了可实施的技术基础。当前前端显示的 0—100 分为分类模型输出的缩放分数，尚未经概率校准；公开驾驶数据上的离线表现也不能直接等同于码头作业中的识别准确率。后续将通过头环脑电与同步行为表现、主观疲劳标签的配对采集，进一步验证跨设备、跨场景适用性，并据此完善个体校准与判定阈值。
 
-JSON接口中的通道名称按实际发送顺序填写：
+## English
 
-```json
-{
-  "channels": ["P4", "C4", "F4", "Cz", "F3", "P3", "Fz", "C3"]
-}
-```
+### System Overview
 
-`eeg` 数组同样保持 PA0～PA7 顺序，与 `channels` 一一对应；不要只重新排列名称而保留数值顺序。
+This system addresses sustained attentional demands and fatigue-risk monitoring in remotely operated port tasks. It implements a real-time analysis pipeline combining **dual-channel frontal EEG acquisition, frequency-band covariance representation, Riemannian alignment, and tangent-space classification**. Using left-frontal Fp1 and right-frontal Fp2 signals, the system connects model training on a public driving-fatigue dataset with online acquisition from a portable EEG headset. The workflow covers physiological signal acquisition, signal-quality control, feature extraction, fatigue-tendency classification, and frontend visualization.
 
-现场收到的帧为 **14字节**：`0xFF + 8个脑电数据字节 + 4个身体数据字节 + 0xFE`。前8个字段已确认对应上述头部电极；后4个字段为身体心电、皮电数据，具体对应关系待确认。当前显示的是原始0～255字节值，正负编码、电压换算和实际采样率仍待核实。
+### Data and Label Construction
 
-此现场协议与既有 `serial12hex` 采集代码假设的26字节、12个有符号16位数值协议不同。下方 `start_jetson.py` / `eeg_bridge.py` 的旧采集流程尚未适配现场14字节协议，不能直接当作这台设备的可用启动方案。已在Jetson上验证的离线 `eeg_server.py` 使用14字节解析和 `pyserial` 读取；接收协议确认不等于疲劳模型推理已验证。
+The model uses raw Fp1/Fp2 EEG from the SADT driving dataset. Alert and drowsy labels represent two endpoint states defined by changes in driving reaction time relative to an individual baseline. This behavioral supervision enables the model to learn statistical associations between EEG activity and reduced vigilance. Training and evaluation cover **20 participants and 6,939 EEG windows**. Subject-independent cross-validation keeps each participant out of the training set when evaluating that participant, providing an assessment of generalization to unseen individuals.
 
-实验室电极与公开SEED-VIG模型的电极不同，通道映射确认后仍不能直接替换模型输入。
+### Signal Processing
 
-## Jetson Nano：从 GitHub 下载并启动脑电帽接口
+Offline training and online inference follow a consistent preprocessing pipeline. Data are resampled to the model processing rate of **50 Hz**, and signals are extracted separately in the δ, θ, and α bands. The 50 Hz rate refers to model processing; the headset has a nominal hardware sampling rate of **250 Hz**, while online stream continuity and missing serial frames require separate checks. For each band, a two-channel shrinkage covariance matrix jointly represents frontal EEG energy changes and interchannel relationships. Shrinkage estimation improves numerical stability for short-window covariance estimates and supplies positive-definite inputs for manifold analysis.
 
-在 **Jetson 终端**执行。脑电帽已接到 `/dev/ttyTHS0`，启动程序直接读取采集项目的 `config.yaml`。启动前关闭其他占用该串口的程序。
+### Riemannian Features and Classification
 
-### 第一次下载与安装
+Covariance matrices are treated as points on the manifold of symmetric positive-definite matrices, allowing Riemannian geometry to account for their non-Euclidean structure. Riemannian alignment based on an individual's initial reference reduces distribution shifts associated with baseline EEG differences and acquisition conditions. The aligned matrices are then mapped into a tangent space to obtain vector features for classification. Logistic regression learns a decision boundary between alert and drowsy states and maps multiband EEG spatial structure to a fatigue-tendency score. **The central idea is to represent band-specific energy and interchannel relationships within a common framework, with adaptation based on an individual reference.**
 
-如果缺少 Git、pip 或 venv，先执行：
+### Online Deployment and Visualization
 
-```bash
-sudo apt-get update
-sudo apt-get install -y git python3-pip python3-venv
-```
+The online system continuously receives data from the Sichiray Gemini dual-channel headset over a serial connection. Quality checks, feature computation, and classification updates operate on sliding windows. Quality control considers headset contact status, stream continuity, missing frames, flat signals, and abnormal amplitudes. When input conditions are unsuitable for inference, prediction updates are suspended and the frontend displays the relevant status. The dashboard presents filtered dual-channel EEG waveforms, device-provided attention and relaxation curves, and the model's fatigue-tendency score. Attention and relaxation remain separate device outputs and are displayed independently of the fatigue classifier.
 
-首次下载两个仓库、安装依赖并启动：
+### Validation Results and Scope
 
-```bash
-mkdir -p "$HOME/eeg-fatigue"
-cd "$HOME/eeg-fatigue"
+Subject-independent evaluation achieved a **mean balanced accuracy of 73.8% and a mean AUC of 0.817**. The inference pipeline has also been exercised using raw EEG replay from a participant excluded from training and live headset data. These results support the feasibility of distinguishing alert and drowsy states using dual-channel frontal EEG with Riemannian features, providing a practical basis for portable, low-channel-count fatigue monitoring. The displayed 0–100 value is a scaled classifier output and has not been probability-calibrated. Offline performance on public driving data must not be interpreted as recognition accuracy in port operations. Further paired recordings of headset EEG, concurrent behavioral performance, and subjective fatigue labels are needed to assess cross-device and cross-scenario applicability and refine individual calibration and decision thresholds.
 
-git clone https://github.com/Garyneil/Port-fatigue-dashboard.git
-git clone https://github.com/Garyneil/eeg-ecg-action-dataset-collector.git
+## 历史文档 / Legacy Documentation
 
-cd Port-fatigue-dashboard
-python3 -m venv .venv
-.venv/bin/python -m pip install -r interface/requirements.txt
+旧版 SEED-VIG、八通道模型与 Jetson 方案保留于 [README.legacy.md](README.legacy.md)，不代表当前双通道 SADT 模型的输入要求或性能。
 
-python3 interface/start_jetson.py
-```
-
-已下载的仓库无需重复克隆。如果采集项目在其他位置，可使用 `python3 interface/start_jetson.py --collector /实际的采集项目路径`。
-
-### 后续更新与启动
-
-```bash
-cd "$HOME/eeg-fatigue/Port-fatigue-dashboard"
-git pull --ff-only
-.venv/bin/python -m pip install -r interface/requirements.txt
-python3 interface/start_jetson.py
-```
-
-保持终端运行，按 `Ctrl+C` 停止。在 **Jetson 自己的浏览器**打开：
-
-**http://127.0.0.1:8765/**
-
-关闭“仿真演示”，脑电接口地址保持 `./api/eeg/latest`。收到串口数据后显示真实8通道数值；没有数据时显示等待提示。
-
-当前启动程序提供串口采集、JSON接口和本地网页，尚未接入疲劳模型推理，也未设置开机自启。云端网页不能直接读取 Jetson 本机串口。详细配置、接口检查和故障排查见 [Jetson 启动指南](interface/JETSON_QUICKSTART.md)。
-
-## 本地运行
-
-连接实验室脑电帽的 Jetson Nano 请使用 [串口真实数据启动指南](interface/JETSON_QUICKSTART.md)，包括首次安装、每次启动和数据检查命令。
-
-项目不依赖构建工具，可直接打开：
-
-```text
-dist/index.html
-```
-
-也可以在项目目录启动静态服务器：
-
-```bash
-python -m http.server 8000 --directory dist
-```
-
-随后访问 `http://localhost:8000`。
-
-## 项目结构
-
-```text
-dist/
-├── index.html    # 页面结构
-├── styles.css    # 科技化大屏样式与响应式布局
-├── app.js        # 风险数据仿真
-└── assets/       # 港口背景与透明岸桥动画图层
-
-model/
-├── artifacts/    # 权重、模型元数据与LOSO指标
-├── riemann_core.py
-├── train_seed_vig.py
-└── infer.py
-```
-
-## 说明
-
-界面中的风险边界、阈值和人员状态仍为仿真数据。已训练模型来源于模拟驾驶数据，尚未使用码头现场人员完成外部验证，只用于原型展示和方法验证，不能直接作为实际安全决策依据。
-
+Earlier SEED-VIG, eight-channel, and Jetson workflows remain in [README.legacy.md](README.legacy.md) and do not describe the input requirements or performance of the current dual-channel SADT model.
