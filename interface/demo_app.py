@@ -9,7 +9,7 @@ import sys
 import threading
 import webbrowser
 
-VERSION = '0.1.3'
+VERSION = '0.1.4'
 RELEASES_URL = 'https://github.com/Garyneil/Port-fatigue-dashboard/releases/latest'
 ONLINE_URL = 'https://garyneil.github.io/Port-fatigue-dashboard/'
 

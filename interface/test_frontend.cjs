@@ -52,14 +52,23 @@ const respond = (index, body) => requests[index].resolve({ok:true,json:async()=>
   }
   sockets[0].onmessage({data:'invalid JSON'});assert.equal(el('riskScore').textContent,'--');
   const headset = extra => packet({device:'Sichiray Gemini', eeg:[1,2],
+    monitor_seconds:754,stream_rate_hz:48,wear_code:1,
+    stream_health:{estimated_missing_frames:0,time_discontinuity:false,sequence_discontinuity:false},
     candidate_inference:{status:'fatigue_inference',model:'SADT 疲劳分类',
-      drowsy_model_score:.37,fatigue_tendency:'alert'}, ...extra});
+      drowsy_model_score:.37,fatigue_tendency:'alert',prediction_timestamp:now/1000}, ...extra});
   sockets[0].onmessage({data:JSON.stringify(headset())});
   assert.equal(el('riskScore').textContent,37);
+  assert.equal(el('workDuration').textContent,'00:12:34');
+  assert.equal(el('signalQuality').textContent,'采集正常');
+  assert.equal(el('responseTime').textContent,'实时更新');
+  assert.equal(el('predictionAge').textContent,'最近有效判定：0 秒前');
   sockets[0].onmessage({data:JSON.stringify(headset({candidate_inference:{
     status:'packet_loss',model:'SADT 疲劳分类',display_stale:true,
-    drowsy_model_score:.37,fatigue_tendency:'alert',message:'数据缺失，显示上次结果'}}))});
+    drowsy_model_score:.37,fatigue_tendency:'alert',prediction_timestamp:now/1000-5,message:'数据缺失，显示上次结果'}}))});
   assert.equal(el('riskScore').textContent,37);
+  assert.equal(el('signalQuality').textContent,'数据不连续');
+  assert.equal(el('responseTime').textContent,'保留上次结果');
+  assert.equal(el('predictionAge').textContent,'最近有效判定：5 秒前');
   assert.equal(el('candidateValue').textContent,'37 / 100');
   assert(el('riskAdvice').textContent.includes('上次结果'));
   sockets[0].onmessage({data:'invalid JSON'});
@@ -69,8 +78,9 @@ const respond = (index, body) => requests[index].resolve({ok:true,json:async()=>
     drowsy_model_score:.37,fatigue_tendency:'alert',message:'显示上次结果'}}))});
   assert.equal(el('riskScore').textContent,37);
   sockets[0].onmessage({data:JSON.stringify(headset({candidate_inference:{
-    status:'fatigue_inference',model:'SADT 疲劳分类',drowsy_model_score:.29,fatigue_tendency:'alert'}}))});
+    status:'fatigue_inference',model:'SADT 疲劳分类',drowsy_model_score:.29,fatigue_tendency:'alert',prediction_timestamp:now/1000}}))});
   assert.equal(el('riskScore').textContent,29,'Recovered inference replaces held score');
+  assert.equal(el('responseTime').textContent,'实时更新');
   assert(!el('riskAdvice').textContent.includes('上次'));
   sockets[0].onmessage({data:JSON.stringify(headset({has_data:false,candidate_inference:{
     status:'waiting_for_data',model:'SADT 疲劳分类'}}))});

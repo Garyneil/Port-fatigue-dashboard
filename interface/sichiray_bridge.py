@@ -58,6 +58,8 @@ class Store:
         self.arrivals = deque(maxlen=1000)
         self.history = deque(maxlen=15000)
         self.session = uuid.uuid4().hex
+        self.monitor_started = None
+        self.monitor_stopped = None
         self.inference = LiveHeadsetInference(reference_path=reference_path) if LiveHeadsetInference else None
 
     def recalibrate(self):
@@ -70,6 +72,8 @@ class Store:
         with self.lock:
             self.latest = packet
             self.received = time.time()
+            if self.monitor_started is None:
+                self.monitor_started = time.monotonic()
             self.count += 1
             self.history.append(dict(id=self.count, time=self.received, sequence=packet['sequence'], eeg_filtered=list(packet["eeg_filtered"]), attention=packet["device_attention"], relaxation=packet["device_relaxation"], wear_code=packet["wear_code"]))
             if self.inference:
@@ -95,12 +99,26 @@ class Store:
             result = dict(source='real', device='Sichiray Gemini', has_data=valid,
                           channels=['Fp1','Fp2'], sample_rate_hz=250, eeg_unit='ADC counts',
                           sample_count=self.count, parse_errors=self.errors,
+                          monitor_seconds=(max(0, (self.monitor_stopped if self.monitor_stopped is not None else time.monotonic()) - self.monitor_started)
+                                           if self.monitor_started is not None else 0),
                           connection_status=self.status, calibrated=False,
                           model_compatible=False,
                           candidate_inference=(self.inference.snapshot() if self.inference else {
                               'status':'model_unavailable','ready':False,
                               'message':MODEL_IMPORT_ERROR or '候选模型模块未加载',
                               'output_meaning':'反应时间代理，不是疲劳概率','hardware_validated':False}))
+            recent = []
+            for row in reversed(self.history):
+                if time.time() - row['time'] > 5:
+                    break
+                recent.append(row)
+            recent.reverse()
+            steps = [(b['sequence']-a['sequence']) % 256 for a,b in zip(recent, recent[1:])]
+            result['stream_health'] = dict(
+                window_seconds=5,
+                estimated_missing_frames=sum(step-1 for step in steps if 1 < step <= 128),
+                sequence_discontinuity=any(step > 128 for step in steps),
+                time_discontinuity=any(b['time']-a['time'] > .5 for a,b in zip(recent, recent[1:])))
             if not valid and self.count and self.status != 'closed':
                 if self.status == 'streaming':
                     result['connection_status'] = 'waiting'
@@ -176,6 +194,8 @@ class SerialControl:
                     self.store.arrivals.clear()
                     self.store.history.clear()
                     self.store.session = uuid.uuid4().hex
+                    self.store.monitor_started = None
+                    self.store.monitor_stopped = None
                     if self.store.inference:
                         self.store.inference.reset(preserve_reference=True)
                         self.store.inference.last_valid_result = None
@@ -193,6 +213,7 @@ class SerialControl:
                 with self.store.lock:
                     self.store.latest = None
                     self.store.status = 'closed'
+                    self.store.monitor_stopped = time.monotonic()
                     if self.store.inference:
                         self.store.inference.reset(preserve_reference=True)
                         self.store.inference.last_valid_result = None

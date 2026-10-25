@@ -4,6 +4,7 @@
   const state = { demo: false, risk: 68, distance: .74, attention: 42, duration: 26, quality: 94, response: 612, workSeconds: 6138 };
   let generation = 0, socket = null, controller = null, receivedAt = 0, latest = null, polling = false;
   let lastHeadsetCandidate = null;
+  let lastMonitorPacket = null, monitorOffline = true;
   let endpoint = './api/eeg/latest';
   try { endpoint = localStorage.getItem('eegInterfaceUrl') || endpoint; } catch (_) {}
   $('interfaceUrl').value = endpoint;
@@ -51,7 +52,7 @@
     pauseEpisode();
     if(latest == null && episode.active && message === '接口暂无数据传入') message='数据中断 · 计时暂停';
     window.EEGVisual?.update(null);
-    ['riskScore','signalQuality','responseTime','workDuration'].forEach(id => { $(id).textContent = '--'; });
+    $('riskScore').textContent = '--';
     $('riskGauge').style.setProperty('--risk', 0);
     $('riskGauge').style.background = 'conic-gradient(from 220deg, rgba(101,139,157,.12) 0 280deg, transparent 0)';
     $('riskLabel').textContent = '等待数据'; $('riskLabel').style.color = '#7693a3';
@@ -60,11 +61,42 @@
     $('currentPoint').style.display = 'none'; $('historicalPoints').innerHTML = '';
     $('sourceStatus').textContent = message; $('systemStatus').textContent = '等待脑电接口';
     $('streamStatus').textContent = 'EEG · WAITING'; $('operatorName').textContent = '--';
-    $('calibrationStatus').textContent = '等待校准状态'; $('eegFormat').textContent = '等待设备数据'; $('eegSamples').textContent = '--';
+    $('calibrationStatus').textContent = '等待校准状态'; $('eegSamples').textContent = '--';
+    monitorOffline = true;
+    renderMonitorMetrics();
     if (lastHeadsetCandidate && (lastHeadsetCandidate.status === 'fatigue_inference' || lastHeadsetCandidate.display_stale)) {
       renderHeadsetScore({...lastHeadsetCandidate, display_stale:true,
         message:'数据缺失，显示上次有效结果；恢复后自动更新'});
     }
+  }
+  function renderMonitorMetrics() {
+    const packet = lastMonitorPacket, candidate = packet?.candidate_inference;
+    const seconds = Math.max(0, Math.floor(number(packet?.monitor_seconds) ?? 0));
+    $('workDuration').textContent = `${pad(Math.floor(seconds/3600))}:${pad(Math.floor(seconds%3600/60))}:${pad(seconds%60)}`;
+    const stamp = Date.parse(packet?.timestamp), age = Date.now()-stamp;
+    const fresh = !monitorOffline && packet?.has_data === true && Number.isFinite(stamp) && age >= -2000 && age < 2000;
+    const stopped = packet?.connection_status === 'closed';
+    $('monitorDurationHint').textContent = stopped ? '本次监测已结束' : !packet || !seconds && !fresh ? '等待设备接入' : fresh ? '本次监测' : '数据中断 · 会话保留';
+    const health = packet?.stream_health || {};
+    const missing = number(health.estimated_missing_frames);
+    const unstable = health.time_discontinuity || health.sequence_discontinuity || (missing != null && missing > 0)
+      || ['data_gap','packet_loss','rate_out_of_range'].includes(candidate?.status);
+    let status = !fresh ? stopped ? '已停止' : packet ? '连接中断' : '等待设备'
+      : packet.wear_code === 0 ? '佩戴异常' : candidate?.status === 'poor_signal' ? '信号异常'
+      : candidate?.status === 'out_of_distribution' ? '特征异常' : unstable ? '数据不连续' : '采集正常';
+    $('signalQuality').textContent = status;
+    $('signalQuality').style.color = status === '采集正常' ? '#36e0d0' : ['等待设备','已停止'].includes(status) ? '#7693a3' : '#ffb74d';
+    const rate = number(packet?.stream_rate_hz);
+    $('eegFormat').textContent = fresh ? `${rate == null ? '接收中' : `${rate} 包/秒`}${missing == null ? '' : ` · 近5秒缺帧估计 ${missing}`}${health.sequence_discontinuity ? ' · 序号跳变' : ''}`
+      : stopped ? '采集已停止，设备已释放' : '等待真实脑电数据';
+    const predictedAt = number(candidate?.prediction_timestamp) ?? number(candidate?.last_prediction_timestamp);
+    const predictionAge = predictedAt == null ? null : Math.max(0,Math.floor(Date.now()/1000-predictedAt));
+    const active = fresh && candidate?.status === 'fatigue_inference' && !candidate.display_stale && predictionAge != null && predictionAge <= 3;
+    const held = candidate?.display_stale || (!fresh && predictedAt != null) || (candidate?.status === 'fatigue_inference' && predictionAge > 3);
+    $('responseTime').textContent = active ? '实时更新' : held && !stopped ? '保留上次结果'
+      : candidate?.status === 'calibrating' ? candidate.reference_ready ? '信号预热' : '参考采集中' : '等待有效判定';
+    $('responseTime').style.color = active ? '#36e0d0' : held && !stopped ? '#ffb74d' : '#7693a3';
+    $('predictionAge').textContent = predictedAt == null ? '尚无有效判定' : `最近有效判定：${predictionAge} 秒前`;
   }
   function renderHeadsetScore(candidate) {
     renderCandidate(candidate);
@@ -85,10 +117,6 @@
     const risk = number(data.risk), distance = number(data.distance), attention = number(data.attention);
     const tracked=trackRisk(risk),duration=tracked.duration;
     $('riskScore').textContent = risk == null ? '--' : Math.round(risk);
-    $('signalQuality').textContent = number(data.quality) == null ? '--' : Math.round(data.quality);
-    $('responseTime').textContent = number(data.response) == null ? '--' : Math.round(data.response);
-    const seconds = number(data.workSeconds);
-    $('workDuration').textContent = seconds == null ? '--' : `${pad(Math.floor(seconds / 3600))}:${pad(Math.floor(seconds % 3600 / 60))}:${pad(Math.floor(seconds % 60))}`;
     const high = risk != null && risk >= 82, warning = risk != null && risk >= 62;
     const color = risk == null ? '#7693a3' : high ? '#ff5e63' : warning ? '#ffb74d' : '#36e0d0';
     $('riskGauge').style.setProperty('--risk', risk ?? 0);
@@ -114,9 +142,13 @@
     renderMetrics({ ...state, velocity: Math.max(.06, Math.min(.42, .08 + state.risk / 300 + jitter(.04))) });
     $('sourceStatus').textContent = '仿真演示已开启 · 当前展示模拟数据'; $('systemStatus').textContent = '仿真演示中'; $('streamStatus').textContent = 'EEG · SIMULATED';
     $('operatorName').textContent = 'OP-017 · 模拟席位 A'; $('calibrationStatus').textContent = '仿真校准状态'; $('eegFormat').textContent = '8 通道 · 仿真输入'; $('eegSamples').textContent = Array.from({length:8}, (_,i) => `CH${i+1}: ${(Math.sin(Date.now()/500+i)*20).toFixed(2)}`).join('  ');
+    $('workDuration').textContent = `${pad(Math.floor(state.workSeconds/3600))}:${pad(Math.floor(state.workSeconds%3600/60))}:${pad(state.workSeconds%60)}`;
+    $('monitorDurationHint').textContent = '模拟计时'; $('signalQuality').textContent = '仿真信号';
+    $('responseTime').textContent = '仿真更新'; $('predictionAge').textContent = '当前为模拟数据';
   }
   function acceptPacket(packet, token) {
     if (state.demo || token !== generation) return;
+    if (packet?.source === 'real') { lastMonitorPacket = packet; monitorOffline = false; }
     if (packet?.source === 'real' && packet.device === 'Sichiray Gemini') {
       lastHeadsetCandidate = packet.candidate_inference || null;
       renderCandidate(lastHeadsetCandidate);
@@ -135,20 +167,19 @@
     $('systemStatus').textContent = '真实脑电数据已接入'; $('streamStatus').textContent = 'EEG · REAL DATA';
     $('operatorName').textContent = typeof packet.operator === 'string' ? packet.operator : '当前设备';
     $('calibrationStatus').textContent = packet.calibrated === true ? '接口报告：校准完成' : '尚未确认校准';
-    $('eegFormat').textContent = `${validRaw ? raw.length : "--"} 通道${number(packet.sample_rate_hz) != null ? ` · ${packet.sample_rate_hz} Hz` : ''}`;
     if (packet.device === 'Sichiray Gemini') {
       const wear = packet.wear_status === 'failed' ? '佩戴失败' : packet.wear_status === 'ok' ? '佩戴正常' : `佩戴状态待确认（${packet.wear_code}）`;
       $('operatorName').textContent = 'Sichiray 双子座 · Fp1 / Fp2';
       $('calibrationStatus').textContent = `${wear} · 电池 ${number(packet.battery_voltage) ?? '--'} V`;
-      $('eegFormat').textContent = `2 通道 · 硬件 250 Hz · 串口 ${number(packet.stream_rate_hz) ?? '--'} 包/s · ADC 原始计数`;
       $('eegSamples').textContent += ` | 设备专注度 ${number(packet.device_attention) ?? '--'} · 放松度 ${number(packet.device_relaxation) ?? '--'}（设备原值）`;
       $('sourceStatus').textContent = `头环实时读取 · ${wear} · 已接收 ${packet.sample_count} 包`;
       renderHeadsetScore(packet.candidate_inference);
     }
-
+    renderMonitorMetrics();
   }
   function disconnect() {
     lastHeadsetCandidate = null;
+    lastMonitorPacket = null; monitorOffline = true;
     resetEpisode();
     generation += 1; controller?.abort(); controller = null;
     if (socket) { socket.onmessage = null; socket.onclose = null; socket.onerror = null; socket.close(); socket = null; }
@@ -197,6 +228,7 @@
     $('date').textContent = `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())}`; $('cameraTime').textContent = $('clock').textContent;
     if (state.demo) state.workSeconds += 1;
     if (!state.demo && latest && Date.now() - receivedAt > 10000) { latest = null; receivedAt = 0; clearEvidence(); }
+    if (!state.demo) renderMonitorMetrics();
   }
   clearEvidence(); clock(); connect(); setInterval(clock,1000);
   setInterval(() => { if (state.demo) simulate(); else if (!socket) { if (/^wss?:/i.test(endpoint)) connect(); else poll(); } },250);

@@ -90,6 +90,7 @@ class LiveFatigueInference:
     model='SADT Fp1/Fp2 黎曼疲劳分类 v1',output_meaning='SADT反应行为标签训练的疲劳倾向分类',
     hardware_validated=False,probability_calibrated=False,progress_percent=0,**extra)
   if status=='fatigue_inference':
+   self.result['prediction_timestamp']=self.last_time
    self.last_valid_result=dict(self.result,prediction_timestamp=self.last_time)
 
  def push(self,packet,received_at):
@@ -172,6 +173,7 @@ class LiveFatigueInference:
   result.update(reference_windows=count,reference_ready=self.center is not None,
     reference_loaded=self.reference_loaded,reference_saved_at=self.reference_saved_at,
     reference_cache_error=self.reference_cache_error,
+    last_prediction_timestamp=(self.last_valid_result.get('prediction_timestamp') if self.last_valid_result else None),
     progress_percent=100 if self.center is not None else round(count/12*100))
   transient=result['status'] in ('data_gap','packet_loss','rate_out_of_range','data_interrupted','calibrating','waiting_for_data')
   if transient and self.last_valid_result:
