@@ -6,9 +6,17 @@ A research prototype for fatigue-tendency recognition using dual-channel frontal
 
 [在线前端 / Dashboard](https://garyneil.github.io/Port-fatigue-dashboard/) · [头环接口 / Headset interface](interface/SICHIRAY_README.md) · [历史方案 / Legacy documentation](README.legacy.md)
 
-> GitHub Pages 提供静态前端。真实头环采集与模型推理需要本地服务。当前推理模块与模型资源从本地 `E:\CODEX Projects\SADT-Fp1Fp2` 加载，仅克隆此仓库不能直接运行完整 SADT 推理或复现训练。
+> GitHub Pages 提供静态前端。真实头环采集与模型推理使用下方 Windows 演示包；模型及推理代码已包含在仓库中，完整训练数据另行管理。
 
-> GitHub Pages hosts the static frontend. Live acquisition and inference require a local service. Inference modules and model resources currently load from the local `E:\CODEX Projects\SADT-Fp1Fp2` directory; cloning this repository alone does not provide standalone SADT inference or reproduce training.
+> GitHub Pages hosts the static frontend. The Windows demo bundles live acquisition, inference and the numeric model. Full training data are managed separately.
+
+## Windows 一键演示包
+
+[下载最新 Windows 演示包](https://github.com/Garyneil/Port-fatigue-dashboard/releases/latest) · [三步使用说明](DEMO_GUIDE.md)
+
+连接同款 Sichiray 双子座头环，完整解压下载包，双击 `PortFatigueDemo.exe`，选择串口并点击“启动演示”。应用自带 Python 运行环境、界面、采集程序和 SADT 双通道推理模型；可离线运行，无需安装开发环境。启动窗口提供停止采集、日志与下载更新入口。
+
+模型与运行代码现已收录在 `interface/`，不再依赖开发电脑的固定盘符。训练数据与完整训练复现环境不包含在演示包内。在线页面可用于界面与仿真展示；真实头环演示使用本地包。GitHub Actions 会构建、自检并将可下载 ZIP 发布到 Releases。
 
 ## 中文说明
 

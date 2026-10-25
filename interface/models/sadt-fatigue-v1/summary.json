@@ -1,0 +1,46 @@
+{
+  "subjects": 20,
+  "sessions": 48,
+  "windows": 6939,
+  "alert": 4164,
+  "drowsy": 2775,
+  "features": 9,
+  "macro_balanced_accuracy": 0.7384976974511843,
+  "subject_bootstrap_95ci": [
+    0.6869303951502499,
+    0.7877216480737148
+  ],
+  "macro_auc": 0.8171678567883278,
+  "pooled_auc": 0.7921569696497651,
+  "pooled_balanced_accuracy": 0.7246665108912947,
+  "confusion_matrix": [
+    [
+      3196,
+      968
+    ],
+    [
+      883,
+      1892
+    ]
+  ],
+  "brier": 0.18438217832805817,
+  "chance_balanced_accuracy": 0.5,
+  "C": 0.01,
+  "inner_scores": {
+    "0.01": 0.7366247318384296,
+    "0.1": 0.7339416115507853,
+    "1.0": 0.7341792702363571,
+    "10.0": 0.7340808424362116
+  },
+  "source": "https://arxiv.org/pdf/2107.09507",
+  "label_rule": "session RT 5th percentile baseline; local and completed-past90s RT both <1.5x => alert; both >2.5x => drowsy; exclude remainder",
+  "protocol_adaptations": [
+    "2 channels Fp1/Fp2; 50Hz; 4s pre-event windows; 0.5-13Hz bands",
+    "all sessions of subjects having >=10 examples per class; not the published 11-subject cohort",
+    "global RT includes only prior trials completed by current deviation onset",
+    "session-wide RT quantile is annotation-only; never an EEG feature or live input"
+  ],
+  "probability_calibrated": false,
+  "hardware_validated": false,
+  "mode": "experimental fatigue tendency classifier"
+}

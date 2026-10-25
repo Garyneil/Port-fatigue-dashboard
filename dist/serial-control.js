@@ -1,6 +1,11 @@
 (() => {
   const button = document.getElementById('serialToggle');
   const label = document.getElementById('serialStatus');
+  if (!['127.0.0.1','localhost','[::1]'].includes(location.hostname)) {
+    button.textContent = '真实设备请使用本地包';
+    label.textContent = '下载并启动 Windows 演示包后，可连接头环。';
+    return;
+  }
   let enabled = false, busy = false;
   function render(data) {
     enabled = data.enabled;

@@ -1,0 +1,62 @@
+name: Build and publish Windows demo
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'interface/demo_app.py'
+      - 'interface/sichiray_bridge.py'
+      - 'interface/eeg_bridge.py'
+      - 'interface/live_fatigue_inference50.py'
+      - 'interface/signal_processing50.py'
+      - 'interface/riemann_twochannel.py'
+      - 'interface/models/**'
+      - 'interface/requirements-demo.txt'
+      - 'scripts/build_windows.py'
+      - 'dist/**'
+      - '.github/workflows/build-windows-demo.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-demo-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install demo and packaging dependencies
+        run: python -m pip install -r interface/requirements-demo.txt pyinstaller==6.16.0
+      - name: Run backend and frontend checks
+        run: |
+          python -m unittest discover -s interface -p "test_*.py"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node interface/test_frontend.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build portable application and test the packaged executable
+        run: python scripts/build_windows.py
+      - name: Preserve build outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: Windows-demo
+          path: |
+            release/*.zip
+            release/*.sha256
+            release/PortFatigueDemo/package-self-test.json
+      - name: Publish downloadable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = python -c "import sys;sys.path.insert(0,'interface');from demo_app import VERSION;print(VERSION)"
+          $tag = "v$version-build.${{ github.run_number }}"
+          $assets = Get-ChildItem release -File | Where-Object { $_.Extension -in '.zip', '.sha256' } | ForEach-Object { $_.FullName }
+          gh release create $tag @assets --target "${{ github.sha }}" --title "脑电疲劳监测 Windows 演示版 $version（构建 ${{ github.run_number }}）" --notes-file DEMO_GUIDE.md --latest
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

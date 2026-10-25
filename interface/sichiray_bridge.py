@@ -15,9 +15,7 @@ from urllib.parse import urlparse, parse_qs
 
 from eeg_bridge import Handler
 
-MODEL_ROOT = Path(r'E:\CODEX Projects\SADT-Fp1Fp2')
-if str(MODEL_ROOT) not in sys.path:
-    sys.path.insert(0, str(MODEL_ROOT))
+MODEL_ROOT = Path(__file__).resolve().parent / 'models' / 'sadt-fatigue-v1'
 try:
     from live_fatigue_inference50 import LiveFatigueInference as LiveHeadsetInference
 except Exception as model_import_error:
@@ -204,7 +202,7 @@ class ControlHandler(Handler):
     def do_GET(self):
         if urlparse(self.path).path == '/api/model/verification':
             try:
-                path = MODEL_ROOT / 'results' / 'fatigue_classifier_v1' / 'inference_verification.json'
+                path = MODEL_ROOT / 'inference_verification.json'
                 self.reply(200, json.loads(path.read_text(encoding='utf-8')))
             except (OSError, ValueError):
                 self.reply(503, {'error': 'Verification record unavailable'})
@@ -241,6 +239,18 @@ class ControlHandler(Handler):
         super().log_message(format, *args)
 
 
+def create_server(args):
+    """Create a stopped local service; the launcher owns startup and cleanup."""
+    store = Store(args.wear_ok_code)
+    control = SerialControl(args, store)
+    handler = type('SessionHandler', (ControlHandler,), {'store': store, 'control': control})
+    root = (Path(sys._MEIPASS) if getattr(sys, 'frozen', False)
+            else Path(__file__).resolve().parents[1]) / 'dist'
+    server = ThreadingHTTPServer((args.host, args.http_port), partial(handler, directory=str(root)))
+    server.daemon_threads = True
+    return server, control
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--port', default='COM8')
@@ -249,12 +259,7 @@ def main():
     parser.add_argument('--host', default='127.0.0.1')
     parser.add_argument('--wear-ok-code', type=int, help='Only set after confirming the successful wear code')
     args = parser.parse_args()
-    store = Store(args.wear_ok_code)
-    ControlHandler.store = store
-    control = SerialControl(args, store)
-    ControlHandler.control = control
-    root = Path(__file__).resolve().parents[1] / 'dist'
-    server = ThreadingHTTPServer((args.host, args.http_port), partial(ControlHandler, directory=str(root)))
+    server, control = create_server(args)
     control.set_enabled(True)
     print(f'Dashboard: http://{args.host}:{args.http_port}/', flush=True)
     try:

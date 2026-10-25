@@ -7,7 +7,8 @@
   try { endpoint = localStorage.getItem('eegInterfaceUrl') || endpoint; } catch (_) {}
   $('interfaceUrl').value = endpoint;
   const number = v => typeof v === 'number' && Number.isFinite(v) ? v : null;
-  fetch('/api/model/verification',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.json();}).then(data=>{
+  const localService = ['127.0.0.1','localhost','[::1]'].includes(new URL(location.href).hostname);
+  fetch(localService ? '/api/model/verification' : './model-verification.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.json();}).then(data=>{
     $('replayVerification').textContent=data.replays.map(r=>`${r.true_label==='alert'?'清醒标签':'困倦标签'} → ${r.fatigue_tendency==='alert'?'倾向清醒':r.fatigue_tendency==='drowsy'?'倾向疲劳':'暂不确定'} ${Math.round(r.drowsy_model_score*100)} 分`).join('；');
   }).catch(()=>{$('replayVerification').textContent='回放记录暂不可用';});
   const jitter = scale => (Math.random() - .48) * scale;
@@ -141,6 +142,7 @@
   }
   async function poll() {
     if (state.demo || socket || polling || !endpoint) return;
+    if (!localService && endpoint === './api/eeg/latest') return;
     const token = generation, request = new AbortController(); controller = request; polling = true;
     const timeout = setTimeout(() => request.abort(), 4000);
     try {

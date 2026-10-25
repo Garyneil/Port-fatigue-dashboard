@@ -25,6 +25,11 @@
       </div>
     </header>
 
+    <div id="deliveryNotice" hidden style="padding:12px 16px;margin-top:10px;border:1px solid #385464;background:#0b2230;font-size:13px;line-height:1.8">
+      在线展示页 · 可开启右上角“仿真演示”预览。连接真实双子座头环，请
+      <a href="https://github.com/Garyneil/Port-fatigue-dashboard/releases/latest" style="color:#36e0d0">下载 Windows 演示包</a>，完整解压后双击启动，无需安装 Python。
+    </div>
+    <script>document.getElementById('deliveryNotice').hidden = ['127.0.0.1','localhost','[::1]'].includes(location.hostname);</script>
     <main class="dashboard-grid">
       <section class="monitor-panel panel" aria-labelledby="monitor-title">
         <div class="panel-heading">

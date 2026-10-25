@@ -6,4 +6,10 @@ __pycache__/
 *.mat
 *.npy
 operator_input.npz
+.build-venv/
+.build-deps/
+build/
+release/
+*.spec
+build-output.log
 

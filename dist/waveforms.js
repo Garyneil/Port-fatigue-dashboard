@@ -1,5 +1,9 @@
 (() => {
   const $ = id => document.getElementById(id);
+  if (!['127.0.0.1','localhost','[::1]'].includes(location.hostname)) {
+    $('waveStatus').textContent = '在线展示页 · 真实设备波形请使用 Windows 演示包';
+    return;
+  }
   let rows=[], cursor=0, session=null, busy=false, seconds=30;
   const charts=[['filteredWave',r=>r.eeg_filtered,['#38dfc6','#58aaff'],false],['attentionWave',r=>[r.attention],['#f5bc60'],true],['relaxationWave',r=>[r.relaxation],['#b49aff'],true]];
   function draw() {
