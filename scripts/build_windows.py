@@ -15,8 +15,8 @@ from demo_app import VERSION
 def main():
     if sys.platform != 'win32':
         raise SystemExit('Build this Windows application on Windows.')
-    output = ROOT / 'release'
-    output.mkdir(exist_ok=True)
+    output = ROOT / 'release' / f'v{VERSION}'
+    output.mkdir(parents=True, exist_ok=True)
     name = 'PortFatigueDemo'
     subprocess.run([sys.executable, '-m', 'PyInstaller', '--noconfirm', '--clean',
         '--windowed', '--onedir', '--name', name,

@@ -9,7 +9,7 @@ import sys
 import threading
 import webbrowser
 
-VERSION = '0.1.0'
+VERSION = '0.1.1'
 RELEASES_URL = 'https://github.com/Garyneil/Port-fatigue-dashboard/releases/latest'
 ONLINE_URL = 'https://garyneil.github.io/Port-fatigue-dashboard/'
 
@@ -107,6 +107,8 @@ def run_gui():
     ports_box.pack(side='left', fill='x', expand=True)
     status_var = tk.StringVar(value='连接头环后，选择串口并点击“启动演示”。')
     detail_var = tk.StringVar(value='首次连续采集约 1 分钟建立参考，信号合格后显示疲劳倾向。')
+    progress_var = tk.DoubleVar(value=0)
+    progress_text = tk.StringVar(value='0 / 12 · 0%')
     service = {'server':None, 'control':None, 'worker':None, 'url':None}
 
     def refresh_ports():
@@ -140,6 +142,8 @@ def run_gui():
         ports_box.configure(state='normal')
         stop_button.configure(state='disabled')
         status_var.set('演示已停止，设备串口已释放。')
+        progress_var.set(0)
+        progress_text.set('0 / 12 · 0%')
 
     def start():
         if service['server']:
@@ -184,6 +188,12 @@ def run_gui():
     ttk.Separator(frame).pack(fill='x', pady=8)
     ttk.Label(frame, textvariable=status_var, wraplength=570, font=('Microsoft YaHei UI', 11)).pack(anchor='w', pady=8)
     ttk.Label(frame, textvariable=detail_var, wraplength=570).pack(anchor='w', pady=4)
+    progress_row = ttk.Frame(frame)
+    progress_row.pack(fill='x', pady=(10, 4))
+    ttk.Progressbar(progress_row, variable=progress_var, maximum=100,
+                    mode='determinate').pack(side='left', fill='x', expand=True)
+    ttk.Label(progress_row, textvariable=progress_text, width=22,
+              anchor='e').pack(side='right', padx=(12, 0))
     footer = ttk.Frame(frame)
     footer.pack(side='bottom', fill='x', pady=(12, 0))
     ttk.Button(footer, text='下载新版本', command=lambda:webbrowser.open(RELEASES_URL)).pack(side='left')
@@ -196,7 +206,13 @@ def run_gui():
             labels = {'closed':'已关闭', 'streaming':'正在接收真实脑电', 'waiting':'等待设备数据', 'disconnected':'串口连接失败，正在重试'}
             status_var.set(f"{port_var.get()} · {labels.get(payload['connection_status'], payload['connection_status'])}")
             if payload['has_data']:
-                detail_var.set(payload['candidate_inference'].get('message', ''))
+                candidate = payload['candidate_inference']
+                detail_var.set(candidate.get('message', ''))
+                count = min(12, max(0, candidate.get('reference_windows', 0)))
+                percent = round(count / 12 * 100)
+                progress_var.set(percent)
+                progress_text.set('参考已完成 · 100%' if candidate.get('reference_ready')
+                                  else f'{count} / 12 · {percent}%')
             else:
                 detail_var.set('请检查设备电源、串口和佩戴；关闭正在占用串口的厂家软件。')
         root.after(1000, tick)

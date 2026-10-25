@@ -48,15 +48,15 @@ jobs:
         with:
           name: Windows-demo
           path: |
-            release/*.zip
-            release/*.sha256
-            release/PortFatigueDemo/package-self-test.json
+            release/**/*.zip
+            release/**/*.sha256
+            release/**/PortFatigueDemo/package-self-test.json
       - name: Publish downloadable release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $version = python -c "import sys;sys.path.insert(0,'interface');from demo_app import VERSION;print(VERSION)"
           $tag = "v$version-build.${{ github.run_number }}"
-          $assets = Get-ChildItem release -File | Where-Object { $_.Extension -in '.zip', '.sha256' } | ForEach-Object { $_.FullName }
+          $assets = Get-ChildItem "release/v$version" -File | Where-Object { $_.Extension -in '.zip', '.sha256' } | ForEach-Object { $_.FullName }
           gh release create $tag @assets --target "${{ github.sha }}" --title "脑电疲劳监测 Windows 演示版 $version（构建 ${{ github.run_number }}）" --notes-file DEMO_GUIDE.md --latest
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

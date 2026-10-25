@@ -96,4 +96,9 @@ class LiveFatigueInference:
    wear_code=packet.get('wear_code'),reference='12 non-overlapping quality-approved 4s epochs; fixed within wear session; not verified alert',sequence_modulus_assumption=256)
   self.result['progress_percent']=100
 
- def snapshot(self):return dict(self.result)
+ def snapshot(self):
+  result=dict(self.result)
+  count=len(self.reference_epochs)
+  result.update(reference_windows=count,reference_ready=self.center is not None,
+    progress_percent=100 if self.center is not None else round(count/12*100))
+  return result
