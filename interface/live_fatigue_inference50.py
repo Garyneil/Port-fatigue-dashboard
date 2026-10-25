@@ -1,6 +1,11 @@
 """Online SADT RT-defined alert/drowsy tendency, Fp1/Fp2 tangent-space model."""
 from collections import deque
 from pathlib import Path
+from datetime import datetime, timezone
+import hashlib
+import logging
+import os
+from zipfile import BadZipFile
 import numpy as np
 from scipy.special import expit
 from signal_processing50 import filter_bank as _filter
@@ -8,11 +13,68 @@ from riemann_twochannel import cov,features,expm,logm
 MODEL=Path(__file__).resolve().parent / 'models' / 'sadt-fatigue-v1' / 'model.npz'
 
 class LiveFatigueInference:
- def __init__(self,model_path=MODEL):
+ def __init__(self,model_path=MODEL,reference_path=None):
   self.model=np.load(model_path,allow_pickle=False) if Path(model_path).exists() else None
+  self.model_fingerprint=hashlib.sha256(Path(model_path).read_bytes()).hexdigest() if self.model is not None else ''
+  self.reference_path=Path(reference_path) if reference_path else None
+  self.reference_cache_error=None
   self.reset()
+  self.load_reference()
+
+ def load_reference(self):
+  if not self.reference_path or not self.reference_path.exists():return False
+  try:
+   with np.load(self.reference_path,allow_pickle=False) as data:
+    if data['schema'].item()!=1 or data['model_fingerprint'].item()!=self.model_fingerprint:
+     raise ValueError('Reference model/version mismatch')
+    center=np.array(data['center']);scale=np.array(data['reference_scale'])
+    epochs=np.array(data['reference_epochs']);amplitudes=np.array(data['reference_amplitudes'])
+    if center.shape!=(3,2,2) or scale.shape!=(2,) or epochs.shape!=(12,3,2,2) or amplitudes.shape!=(12,2):
+     raise ValueError('Invalid reference shapes')
+    if not all(np.isfinite(a).all() for a in (center,scale,epochs,amplitudes)) or np.any(scale<=0) or np.any(amplitudes<=0):
+     raise ValueError('Invalid reference values')
+    if not np.allclose(center,center.swapaxes(-1,-2)) or np.min(np.linalg.eigvalsh(center))<=0:
+     raise ValueError('Invalid reference covariance')
+    saved_at=str(data['saved_at'].item())
+   self.center=center;self.reference_scale=scale
+   self.reference_epochs=list(epochs);self.reference_amplitudes=list(amplitudes)
+   self.reference_loaded=True;self.reference_saved_at=saved_at
+   self.set_result('waiting_for_data','已加载上次参考，等待头环数据')
+   return True
+  except (OSError,ValueError,KeyError,EOFError,TypeError,BadZipFile) as error:
+   self.reference_cache_error=str(error)
+   logging.warning('Reference cache not loaded: %s',error)
+   return False
+
+ def save_reference(self):
+  if self.center is None or not self.reference_path:return
+  try:
+   self.reference_path.parent.mkdir(parents=True,exist_ok=True)
+   saved_at=datetime.now(timezone.utc).isoformat()
+   temporary=self.reference_path.with_suffix('.tmp')
+   with temporary.open('wb') as stream:
+    np.savez_compressed(stream,schema=1,model_fingerprint=self.model_fingerprint,
+      center=self.center,reference_scale=self.reference_scale,
+      reference_epochs=np.asarray(self.reference_epochs),
+      reference_amplitudes=np.asarray(self.reference_amplitudes),saved_at=saved_at)
+   os.replace(temporary,self.reference_path)
+   self.reference_saved_at=saved_at;self.reference_cache_error=None
+  except OSError as error:
+   self.reference_cache_error=str(error)
+   logging.warning('Reference cache not saved: %s',error)
+
+ def recalibrate(self):
+  self.reset()
+  if self.reference_path:
+   try:self.reference_path.unlink(missing_ok=True);self.reference_cache_error=None
+   except OSError as error:
+    self.reference_cache_error=str(error)
+    logging.warning('Old reference cache not cleared: %s',error)
+  self.set_result('waiting_for_data','重新校准已开始，等待采集有效参考片段 0/12')
+  return self.snapshot()
 
  def reset(self,preserve_reference=False):
+  if not preserve_reference:self.reference_loaded=False;self.reference_saved_at=None
   refs=getattr(self,"reference_epochs",[]) if preserve_reference else []
   amplitudes=getattr(self,"reference_amplitudes",[]) if preserve_reference else []
   center=getattr(self,"center",None) if preserve_reference else None
@@ -33,7 +95,8 @@ class LiveFatigueInference:
  def push(self,packet,received_at):
   if self.model is None:self.set_result('model_missing','未找到疲劳分类模型');return
   if packet.get('wear_code')==0:
-   self.reset();self.set_result('wear_failed','设备报告佩戴失败，请调整电极和耳夹');return
+   self.reset(preserve_reference=True);self.last_valid_result=None
+   self.set_result('wear_failed','设备报告佩戴失败，请调整电极和耳夹');return
   values=np.asarray(packet['eeg_filtered'],dtype=float)
   if values.shape!=(2,) or not np.isfinite(values).all():self.set_result('invalid_signal','脑电数值无效');return
   if self.last_time is not None and received_at-self.last_time>2:self.reset(preserve_reference=True)
@@ -49,7 +112,9 @@ class LiveFatigueInference:
   elapsed=received_at-self.first_time
   if elapsed<14:
    remaining=max(0,14-elapsed)+4*max(0,11-len(self.reference_epochs)) if self.center is None else max(0,14-elapsed)
-   self.set_result('calibrating',f'收集有效参考片段 {len(self.reference_epochs)}/12；断流后滤波预热',reference_windows=len(self.reference_epochs),remaining_seconds=round(remaining,1),elapsed_seconds=round(elapsed,1))
+   message=(f'已加载上次参考；信号预热，剩余 {max(0,14-elapsed):.0f} 秒' if self.reference_loaded
+     else f'参考已就绪；信号预热，剩余 {max(0,14-elapsed):.0f} 秒') if self.center is not None else f'收集有效参考片段 {len(self.reference_epochs)}/12；信号预热'
+   self.set_result('calibrating',message,reference_windows=len(self.reference_epochs),remaining_seconds=round(remaining,1),elapsed_seconds=round(elapsed,1))
    self.result['progress_percent']=int(len(self.reference_epochs)/12*100);return
   check_rate=min(60,max(35,self.index/max(elapsed,.001)))
   if self.index-self.last_prediction_index<check_rate:return
@@ -85,6 +150,7 @@ class LiveFatigueInference:
     self.result['progress_percent']=int(count/12*100);return
    self.center=expm(logm(np.array(self.reference_epochs)).mean(axis=0))
    self.reference_scale=np.maximum(np.median(self.reference_amplitudes,axis=0),1e-8)
+   self.save_reference()
   if np.min(current)<1e-8 or np.max(current/self.reference_scale)>10:
    self.set_result('poor_signal','波形平直或相对初始参考突变，暂停判定');return
   C=np.array([cov(ch[:,-200:]) for ch in f]);feat=features(C[None],self.center)[0]
@@ -96,7 +162,7 @@ class LiveFatigueInference:
   label={'drowsy':'倾向疲劳','alert':'倾向清醒','uncertain':'暂不确定'}[tendency]
   self.set_result('fatigue_inference',label,drowsy_model_score=score,predicted_class='drowsy' if score>=.5 else 'alert',
    fatigue_tendency=tendency,elapsed_seconds=round(elapsed,1),estimated_stream_rate_hz=round(rate,2),missing_sequence_frames=window_missing,lifetime_missing_sequence_frames=self.missing,
-   wear_code=packet.get('wear_code'),reference='12 non-overlapping quality-approved 4s epochs; fixed within wear session; not verified alert',sequence_modulus_assumption=256)
+   wear_code=packet.get('wear_code'),reference='12 non-overlapping quality-approved 4s epochs; persisted personal reference; manually replaceable; not verified alert',sequence_modulus_assumption=256)
   self.result['progress_percent']=100
 
  def snapshot(self,status=None,message=None):
@@ -104,6 +170,8 @@ class LiveFatigueInference:
   if status is not None:result.update(status=status,ready=False,message=message)
   count=len(self.reference_epochs)
   result.update(reference_windows=count,reference_ready=self.center is not None,
+    reference_loaded=self.reference_loaded,reference_saved_at=self.reference_saved_at,
+    reference_cache_error=self.reference_cache_error,
     progress_percent=100 if self.center is not None else round(count/12*100))
   transient=result['status'] in ('data_gap','packet_loss','rate_out_of_range','data_interrupted','calibrating','waiting_for_data')
   if transient and self.last_valid_result:

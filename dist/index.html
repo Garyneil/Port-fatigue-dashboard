@@ -88,7 +88,7 @@
               <div class="interface-controls"><input id="interfaceUrl" type="text" placeholder="输入 HTTPS 或 WSS 接口地址" aria-describedby="interfaceHint"><button type="submit">连接</button></div>
               <small id="interfaceHint">真实模式读取设备接口；仿真模式暂停接口读取</small>
             </form>
-            <div class="interface-controls" style="margin-top:10px"><button id="serialToggle" type="button" disabled>检查串口状态…</button><small id="serialStatus" role="status" aria-live="polite">正在连接本机串口服务</small></div>
+            <div class="interface-controls" style="margin-top:10px"><button id="serialToggle" type="button" disabled>检查串口状态…</button><button id="recalibrateButton" type="button" disabled>重新校准</button><small id="serialStatus" role="status" aria-live="polite">正在连接本机串口服务</small></div>
           </div>
           <div class="gauge-row">
             <div class="risk-gauge" id="riskGauge" style="--risk:0">
@@ -104,7 +104,7 @@
           <div class="candidate-card" aria-live="polite">
             <div><strong>SADT 双通道疲劳分类</strong><span id="candidateState">等待头环数据</span></div>
             <b id="candidateValue">--</b>
-            <small id="candidateNote">清醒／疲劳倾向分类 · 尚未完成头环外部验证。</small>
+            <small id="candidateNote">SADT 清醒／困倦行为标签训练 · 显示分类模型分数。</small>
           </div>
 
 

@@ -47,7 +47,7 @@ def parse_line(line):
 
 
 class Store:
-    def __init__(self, wear_ok=None):
+    def __init__(self, wear_ok=None, reference_path=None):
         self.lock = threading.Lock()
         self.latest = None
         self.received = 0
@@ -58,7 +58,13 @@ class Store:
         self.arrivals = deque(maxlen=1000)
         self.history = deque(maxlen=15000)
         self.session = uuid.uuid4().hex
-        self.inference = LiveHeadsetInference() if LiveHeadsetInference else None
+        self.inference = LiveHeadsetInference(reference_path=reference_path) if LiveHeadsetInference else None
+
+    def recalibrate(self):
+        with self.lock:
+            if not self.inference:
+                raise RuntimeError('Model unavailable')
+            return self.inference.recalibrate()
 
     def update(self, packet):
         with self.lock:
@@ -171,7 +177,8 @@ class SerialControl:
                     self.store.history.clear()
                     self.store.session = uuid.uuid4().hex
                     if self.store.inference:
-                        self.store.inference.reset()
+                        self.store.inference.reset(preserve_reference=True)
+                        self.store.inference.last_valid_result = None
                 self.worker = threading.Thread(target=read_serial,
                     args=(self.args, self.store, self.stop), daemon=True)
                 self.enabled = True
@@ -187,7 +194,8 @@ class SerialControl:
                     self.store.latest = None
                     self.store.status = 'closed'
                     if self.store.inference:
-                        self.store.inference.reset()
+                        self.store.inference.reset(preserve_reference=True)
+                        self.store.inference.last_valid_result = None
             return self._state()
 
 
@@ -227,11 +235,12 @@ class ControlHandler(Handler):
         if self.headers.get('X-Serial-Control') != '1' or (origin and origin != 'http://' + self.headers.get('Host', '')):
             self.reply(403, {'error': 'Same-origin control required'})
             return
-        if self.path not in ('/api/serial/open', '/api/serial/close'):
+        if self.path not in ('/api/serial/open', '/api/serial/close', '/api/model/recalibrate'):
             self.reply(404, {'error': 'Unknown action'})
             return
         try:
-            self.reply(200, self.control.set_enabled(self.path.endswith('/open')))
+            self.reply(200, self.store.recalibrate() if self.path == '/api/model/recalibrate'
+                       else self.control.set_enabled(self.path.endswith('/open')))
         except RuntimeError as error:
             self.reply(503, {'error': str(error)})
 
@@ -244,7 +253,7 @@ class ControlHandler(Handler):
 
 def create_server(args):
     """Create a stopped local service; the launcher owns startup and cleanup."""
-    store = Store(args.wear_ok_code)
+    store = Store(args.wear_ok_code, getattr(args, 'reference_path', None))
     control = SerialControl(args, store)
     handler = type('SessionHandler', (ControlHandler,), {'store': store, 'control': control})
     root = (Path(sys._MEIPASS) if getattr(sys, 'frozen', False)

@@ -9,14 +9,14 @@ import sys
 import threading
 import webbrowser
 
-VERSION = '0.1.2'
+VERSION = '0.1.3'
 RELEASES_URL = 'https://github.com/Garyneil/Port-fatigue-dashboard/releases/latest'
 ONLINE_URL = 'https://garyneil.github.io/Port-fatigue-dashboard/'
 
 
 def self_test(output):
     """Exercise the actual bundled model, preprocessing and local HTTP service."""
-    from urllib.request import build_opener, ProxyHandler
+    from urllib.request import build_opener, ProxyHandler, Request
     urlopen = build_opener(ProxyHandler({})).open
     Path(output).parent.mkdir(parents=True, exist_ok=True)
     if sys.stderr is None:
@@ -46,6 +46,13 @@ def self_test(output):
         model.push({'sequence':i % 256, 'wear_code':1,
                     'eeg_filtered':signal[:, i % 700].tolist()}, 1000+i/50)
     assert model.snapshot()['status'] in ('fatigue_inference', 'out_of_distribution')
+    model.reference_path = Path(output).with_name('reference-self-test.npz')
+    model.save_reference()
+    restored = LiveFatigueInference(reference_path=model.reference_path)
+    assert restored.snapshot()['reference_loaded']
+    assert np.allclose(restored.center, model.center)
+    restored.recalibrate()
+    assert not model.reference_path.exists()
     server, control = create_server(Namespace(port='TEST-NO-DEVICE', baudrate=115200,
         wear_ok_code=None, host='127.0.0.1', http_port=0))
     worker = threading.Thread(target=server.serve_forever, daemon=True)
@@ -60,9 +67,15 @@ def self_test(output):
             assert payload['candidate_inference']['status'] == 'waiting_for_data'
         with urlopen(url + '/api/model/verification') as response:
             assert json.load(response)['numeric_export_max_abs_error'] == 0
+        request = Request(url + '/api/model/recalibrate', data=b'',
+            headers={'X-Serial-Control':'1'}, method='POST')
+        with urlopen(request) as response:
+            reference = json.load(response)
+            assert reference['reference_windows'] == 0
+            assert reference['reference_ready'] is False
         result = dict(version=VERSION, passed=True, model_loaded=True,
             synthetic_numeric_check_score=score, synthetic_stream_status=model.snapshot()['status'],
-            http_and_assets=True, no_device_data_fabricated=True)
+            http_and_assets=True, reference_cache_roundtrip=True, no_device_data_fabricated=True)
         Path(output).write_text(json.dumps(result, indent=2), encoding='utf-8')
     finally:
         server.shutdown()
@@ -141,6 +154,7 @@ def run_gui():
         start_button.configure(state='normal')
         ports_box.configure(state='normal')
         stop_button.configure(state='disabled')
+        recalibrate_button.configure(state='disabled')
         status_var.set('演示已停止，设备串口已释放。')
         progress_var.set(0)
         progress_text.set('0 / 12 · 0%')
@@ -160,7 +174,8 @@ def run_gui():
         try:
             # Let Windows allocate an available port, avoiding conflicts with old services.
             server, control = create_server(Namespace(port=port, baudrate=115200,
-                wear_ok_code=None, host='127.0.0.1', http_port=0))
+                wear_ok_code=None, host='127.0.0.1', http_port=0,
+                reference_path=data_dir / 'personal-reference-v1.npz'))
             worker = threading.Thread(target=server.serve_forever, daemon=True)
             worker.start()
             control.set_enabled(True)
@@ -170,6 +185,7 @@ def run_gui():
             start_button.configure(state='disabled')
             ports_box.configure(state='disabled')
             stop_button.configure(state='normal')
+            recalibrate_button.configure(state='normal')
             webbrowser.open(url)
         except Exception as error:
             logging.exception('Startup failed')
@@ -185,6 +201,14 @@ def run_gui():
     ttk.Button(buttons, text='打开监测界面', command=lambda: webbrowser.open(service['url']) if service['url'] else start()).pack(side='left', padx=8)
     stop_button = ttk.Button(buttons, text='停止 / 释放设备', command=stop, state='disabled')
     stop_button.pack(side='left')
+    def recalibrate():
+        if service['control']:
+            service['control'].store.recalibrate()
+            progress_var.set(0)
+            progress_text.set('0 / 12 · 0%')
+            detail_var.set('重新校准已开始，正在采集新的个人参考。')
+    recalibrate_button = ttk.Button(buttons, text='重新校准', command=recalibrate, state='disabled')
+    recalibrate_button.pack(side='left', padx=(8, 0))
     ttk.Separator(frame).pack(fill='x', pady=8)
     ttk.Label(frame, textvariable=status_var, wraplength=570, font=('Microsoft YaHei UI', 11)).pack(anchor='w', pady=8)
     ttk.Label(frame, textvariable=detail_var, wraplength=570).pack(anchor='w', pady=4)
@@ -206,14 +230,14 @@ def run_gui():
             labels = {'closed':'已关闭', 'streaming':'正在接收真实脑电', 'waiting':'等待设备数据', 'disconnected':'串口连接失败，正在重试'}
             status_var.set(f"{port_var.get()} · {labels.get(payload['connection_status'], payload['connection_status'])}")
             candidate = payload['candidate_inference']
-            if payload['has_data'] or candidate.get('display_stale'):
+            if payload['has_data'] or candidate.get('display_stale') or candidate.get('reference_ready'):
                 score = candidate.get('drowsy_model_score')
                 detail_var.set(f"{round(score*100)} / 100 · {candidate.get('message', '')}"
                                if score is not None else candidate.get('message', ''))
                 count = min(12, max(0, candidate.get('reference_windows', 0)))
                 percent = round(count / 12 * 100)
                 progress_var.set(percent)
-                progress_text.set('参考已完成 · 100%' if candidate.get('reference_ready')
+                progress_text.set(('已加载上次参考 · 100%' if candidate.get('reference_loaded') else '参考已完成 · 100%') if candidate.get('reference_ready')
                                   else f'{count} / 12 · {percent}%')
             else:
                 detail_var.set('请检查设备电源、串口和佩戴；关闭正在占用串口的厂家软件。')
