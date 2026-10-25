@@ -17,6 +17,7 @@ class LiveFatigueInference:
   amplitudes=getattr(self,"reference_amplitudes",[]) if preserve_reference else []
   center=getattr(self,"center",None) if preserve_reference else None
   scale=getattr(self,"reference_scale",None) if preserve_reference else None
+  self.last_valid_result=getattr(self,'last_valid_result',None) if preserve_reference else None
   self.first_time=None;self.last_time=None;self.last_seq=None;self.index=0;self.missing=0;self.last_prediction_index=-1
   self.rows=deque(maxlen=2000);self.center=center;self.reference_scale=scale
   self.reference_epochs=refs;self.reference_amplitudes=amplitudes;self.last_reference_index=-100000
@@ -26,6 +27,8 @@ class LiveFatigueInference:
   self.result=dict(status=status,ready=status=='fatigue_inference',message=message,
     model='SADT Fp1/Fp2 黎曼疲劳分类 v1',output_meaning='SADT反应行为标签训练的疲劳倾向分类',
     hardware_validated=False,probability_calibrated=False,progress_percent=0,**extra)
+  if status=='fatigue_inference':
+   self.last_valid_result=dict(self.result,prediction_timestamp=self.last_time)
 
  def push(self,packet,received_at):
   if self.model is None:self.set_result('model_missing','未找到疲劳分类模型');return
@@ -61,9 +64,9 @@ class LiveFatigueInference:
   window_missing=max(0,int(current_steps)-(len(current_rows)-1))
   loss=window_missing/max(1,current_steps)
   if len(current_rows)<2 or np.max(np.diff(current_rows[:,1]))>.5:
-   self.set_result("poor_signal","当前窗口接收时间不连续，暂停判定");return
+   self.set_result("data_gap","当前窗口接收时间不连续，等待数据恢复");return
   if not 35<=rate<=60:self.set_result('rate_out_of_range','实际帧率超出35至60包/秒适配范围',estimated_stream_rate_hz=round(rate,2));return
-  if loss>.02:self.set_result('packet_loss','序号估计缺帧超过2%，暂停判定',missing_sequence_frames=window_missing);return
+  if loss>.02:self.set_result('packet_loss','当前窗口存在缺帧，等待数据恢复',missing_sequence_frames=window_missing);return
   a=np.asarray(self.rows);idx=a[:,0];grid=np.linspace(idx[-1]-rate*13.98,idx[-1],700)
   if grid[0]<idx[0] or np.count_nonzero(idx>=grid[0])<rate*14*.9:return
   sig=np.vstack([np.interp(grid,idx,a[:,c]) for c in (2,3)])
@@ -96,9 +99,17 @@ class LiveFatigueInference:
    wear_code=packet.get('wear_code'),reference='12 non-overlapping quality-approved 4s epochs; fixed within wear session; not verified alert',sequence_modulus_assumption=256)
   self.result['progress_percent']=100
 
- def snapshot(self):
+ def snapshot(self,status=None,message=None):
   result=dict(self.result)
+  if status is not None:result.update(status=status,ready=False,message=message)
   count=len(self.reference_epochs)
   result.update(reference_windows=count,reference_ready=self.center is not None,
     progress_percent=100 if self.center is not None else round(count/12*100))
+  transient=result['status'] in ('data_gap','packet_loss','rate_out_of_range','data_interrupted','calibrating','waiting_for_data')
+  if transient and self.last_valid_result:
+   for key in ('drowsy_model_score','predicted_class','fatigue_tendency','prediction_timestamp'):
+    result[key]=self.last_valid_result[key]
+   result.update(display_stale=True,message='数据缺失，显示上次有效结果；恢复后自动更新')
+  elif transient and result['status'] in ('data_gap','packet_loss','rate_out_of_range','data_interrupted'):
+   result['message']=f'数据缺失，已收集有效参考片段 {count}/12；恢复后继续'
   return result

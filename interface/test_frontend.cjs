@@ -51,6 +51,30 @@ const respond = (index, body) => requests[index].resolve({ok:true,json:async()=>
     assert(Math.abs(x-(54+risk/100*442))<1e-8,'Plot must use same risk score, independent of distance');
   }
   sockets[0].onmessage({data:'invalid JSON'});assert.equal(el('riskScore').textContent,'--');
+  const headset = extra => packet({device:'Sichiray Gemini', eeg:[1,2],
+    candidate_inference:{status:'fatigue_inference',model:'SADT 疲劳分类',
+      drowsy_model_score:.37,fatigue_tendency:'alert'}, ...extra});
+  sockets[0].onmessage({data:JSON.stringify(headset())});
+  assert.equal(el('riskScore').textContent,37);
+  sockets[0].onmessage({data:JSON.stringify(headset({candidate_inference:{
+    status:'packet_loss',model:'SADT 疲劳分类',display_stale:true,
+    drowsy_model_score:.37,fatigue_tendency:'alert',message:'数据缺失，显示上次结果'}}))});
+  assert.equal(el('riskScore').textContent,37);
+  assert.equal(el('candidateValue').textContent,'37 / 100');
+  assert(el('riskAdvice').textContent.includes('上次结果'));
+  sockets[0].onmessage({data:'invalid JSON'});
+  assert.equal(el('riskScore').textContent,37,'Transport outage preserves last device score');
+  sockets[0].onmessage({data:JSON.stringify(headset({has_data:false,candidate_inference:{
+    status:'data_interrupted',model:'SADT 疲劳分类',display_stale:true,
+    drowsy_model_score:.37,fatigue_tendency:'alert',message:'显示上次结果'}}))});
+  assert.equal(el('riskScore').textContent,37);
+  sockets[0].onmessage({data:JSON.stringify(headset({candidate_inference:{
+    status:'fatigue_inference',model:'SADT 疲劳分类',drowsy_model_score:.29,fatigue_tendency:'alert'}}))});
+  assert.equal(el('riskScore').textContent,29,'Recovered inference replaces held score');
+  assert(!el('riskAdvice').textContent.includes('上次'));
+  sockets[0].onmessage({data:JSON.stringify(headset({has_data:false,candidate_inference:{
+    status:'waiting_for_data',model:'SADT 疲劳分类'}}))});
+  assert.equal(el('riskScore').textContent,'--','Explicit stop/session reset clears previous result');
   el('demoToggle').events.click();assert(sockets[0].closed);
   const tracker=script.slice(script.indexOf('  let episode ='),script.indexOf('  function clearEvidence'));
   const trackerContext=vm.createContext({Date,Math});vm.runInContext(tracker,trackerContext);

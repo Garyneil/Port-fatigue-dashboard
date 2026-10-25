@@ -3,6 +3,7 @@
   const pad = n => String(n).padStart(2, '0');
   const state = { demo: false, risk: 68, distance: .74, attention: 42, duration: 26, quality: 94, response: 612, workSeconds: 6138 };
   let generation = 0, socket = null, controller = null, receivedAt = 0, latest = null, polling = false;
+  let lastHeadsetCandidate = null;
   let endpoint = './api/eeg/latest';
   try { endpoint = localStorage.getItem('eegInterfaceUrl') || endpoint; } catch (_) {}
   $('interfaceUrl').value = endpoint;
@@ -17,9 +18,9 @@
     if (!candidate) return;
     const status = candidate.status;
     if (candidate.model?.includes('疲劳分类')) {
-      const active = status === 'fatigue_inference';
+      const active = (status === 'fatigue_inference' || candidate.display_stale === true) && number(candidate.drowsy_model_score) != null;
       const label = {drowsy:'倾向疲劳',alert:'倾向清醒',uncertain:'暂不确定'}[candidate.fatigue_tendency];
-      $('candidateState').textContent = active ? label : status === 'calibrating' ? `初始参考采集中 · 剩余 ${candidate.remaining_seconds ?? '--'} 秒` : candidate.message || '等待头环数据';
+      $('candidateState').textContent = active ? `${label}${candidate.display_stale ? ' · 显示上次结果' : ''}` : status === 'calibrating' ? `初始参考采集中 · 剩余 ${candidate.remaining_seconds ?? '--'} 秒` : candidate.message || '等待头环数据';
       $('candidateValue').textContent = active ? `${Math.round(candidate.drowsy_model_score*100)} / 100` : '--';
       $('candidateNote').textContent = 'SADT 清醒/困倦行为标签训练 · 显示分类模型分数，尚未经概率校准；头环适用性仍在验证。';
       return;
@@ -60,6 +61,25 @@
     $('sourceStatus').textContent = message; $('systemStatus').textContent = '等待脑电接口';
     $('streamStatus').textContent = 'EEG · WAITING'; $('operatorName').textContent = '--';
     $('calibrationStatus').textContent = '等待校准状态'; $('eegFormat').textContent = '等待设备数据'; $('eegSamples').textContent = '--';
+    if (lastHeadsetCandidate && (lastHeadsetCandidate.status === 'fatigue_inference' || lastHeadsetCandidate.display_stale)) {
+      renderHeadsetScore({...lastHeadsetCandidate, display_stale:true,
+        message:'数据缺失，显示上次有效结果；恢复后自动更新'});
+    }
+  }
+  function renderHeadsetScore(candidate) {
+    renderCandidate(candidate);
+    const active = (candidate?.status === 'fatigue_inference' || candidate?.display_stale === true)
+      && number(candidate?.drowsy_model_score) != null;
+    const score = active ? number(candidate.drowsy_model_score) : null;
+    const label = {drowsy:'倾向疲劳',alert:'倾向清醒',uncertain:'暂不确定'}[candidate?.fatigue_tendency];
+    $('riskAdvice').textContent = candidate?.display_stale ? candidate.message
+      : active ? 'SADT 双通道分类器 · 头环实验性结果' : candidate?.message || '等待疲劳分类结果';
+    $('riskScore').textContent = score == null ? '--' : Math.round(score*100);
+    $('riskLabel').textContent = active ? label : '等待判定';
+    const color = candidate?.fatigue_tendency === 'drowsy' ? '#ffb74d' : candidate?.fatigue_tendency === 'alert' ? '#36e0d0' : '#7693a3';
+    $('riskLabel').style.color = color;
+    $('riskGauge').style.background = `conic-gradient(from 220deg, ${color} calc(${score == null ? 0 : score*100} * 2.8deg), rgba(101,139,157,.12) 0 280deg, transparent 0)`;
+    $('decisionText').textContent = active ? `${label} · 分类分数 ${Math.round(score*100)}/100 · ${candidate.display_stale ? '上次有效结果，等待数据恢复' : '实验结果'}` : candidate?.message || '等待模型所需数据';
   }
   function renderMetrics(data) {
     const risk = number(data.risk), distance = number(data.distance), attention = number(data.attention);
@@ -97,7 +117,10 @@
   }
   function acceptPacket(packet, token) {
     if (state.demo || token !== generation) return;
-    if (packet && packet.device === 'Sichiray Gemini') renderCandidate(packet.candidate_inference);
+    if (packet?.source === 'real' && packet.device === 'Sichiray Gemini') {
+      lastHeadsetCandidate = packet.candidate_inference || null;
+      renderCandidate(lastHeadsetCandidate);
+    } else if (packet?.source === 'real') { lastHeadsetCandidate = null; }
     const stamp = packet && Date.parse(packet.timestamp), age = Date.now() - stamp;
     const raw = packet && packet.eeg;
     const validRaw = Array.isArray(raw) && [2, 8].includes(raw.length) && raw.every(v => number(v) != null);
@@ -120,21 +143,12 @@
       $('eegFormat').textContent = `2 通道 · 硬件 250 Hz · 串口 ${number(packet.stream_rate_hz) ?? '--'} 包/s · ADC 原始计数`;
       $('eegSamples').textContent += ` | 设备专注度 ${number(packet.device_attention) ?? '--'} · 放松度 ${number(packet.device_relaxation) ?? '--'}（设备原值）`;
       $('sourceStatus').textContent = `头环实时读取 · ${wear} · 已接收 ${packet.sample_count} 包`;
-      const candidate = packet.candidate_inference;
-      const active = candidate?.status === 'fatigue_inference';
-      const score = active ? number(candidate.drowsy_model_score) : null;
-      const label = {drowsy:'倾向疲劳',alert:'倾向清醒',uncertain:'暂不确定'}[candidate?.fatigue_tendency];
-      $('riskAdvice').textContent = active ? 'SADT 双通道分类器 · 头环实验性结果' : candidate?.message || '等待疲劳分类结果';
-      $('riskScore').textContent = score == null ? '--' : Math.round(score*100);
-      $('riskLabel').textContent = active ? label : '等待判定';
-      const color = candidate?.fatigue_tendency === 'drowsy' ? '#ffb74d' : candidate?.fatigue_tendency === 'alert' ? '#36e0d0' : '#7693a3';
-      $('riskLabel').style.color = color;
-      $('riskGauge').style.background = `conic-gradient(from 220deg, ${color} calc(${score == null ? 0 : score*100} * 2.8deg), rgba(101,139,157,.12) 0 280deg, transparent 0)`;
-      $('decisionText').textContent = active ? `${label} · 分类分数 ${Math.round(score*100)}/100 · 实验结果` : candidate?.message || '等待模型所需数据';
+      renderHeadsetScore(packet.candidate_inference);
     }
 
   }
   function disconnect() {
+    lastHeadsetCandidate = null;
     resetEpisode();
     generation += 1; controller?.abort(); controller = null;
     if (socket) { socket.onmessage = null; socket.onclose = null; socket.onerror = null; socket.close(); socket = null; }

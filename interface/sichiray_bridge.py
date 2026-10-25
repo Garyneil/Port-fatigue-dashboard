@@ -95,11 +95,12 @@ class Store:
                               'status':'model_unavailable','ready':False,
                               'message':MODEL_IMPORT_ERROR or '候选模型模块未加载',
                               'output_meaning':'反应时间代理，不是疲劳概率','hardware_validated':False}))
-            if not valid and self.latest is not None:
-                result['connection_status'] = 'waiting'
-                result['candidate_inference'] = dict(status='data_interrupted',ready=False,
-                    model='SADT Fp1/Fp2 黎曼疲劳分类 v1',message='头环数据中断，等待重新采集',
-                    hardware_validated=False,probability_calibrated=False)
+            if not valid and self.count and self.status != 'closed':
+                if self.status == 'streaming':
+                    result['connection_status'] = 'waiting'
+                if self.inference:
+                    result['candidate_inference'] = self.inference.snapshot(
+                        status='data_interrupted',message='头环数据中断，等待恢复')
             if valid:
                 result.update(self.latest)
                 span = self.arrivals[-1] - self.arrivals[0]
@@ -185,6 +186,8 @@ class SerialControl:
                 with self.store.lock:
                     self.store.latest = None
                     self.store.status = 'closed'
+                    if self.store.inference:
+                        self.store.inference.reset()
             return self._state()
 
 

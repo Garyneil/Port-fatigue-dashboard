@@ -9,7 +9,7 @@ import sys
 import threading
 import webbrowser
 
-VERSION = '0.1.1'
+VERSION = '0.1.2'
 RELEASES_URL = 'https://github.com/Garyneil/Port-fatigue-dashboard/releases/latest'
 ONLINE_URL = 'https://garyneil.github.io/Port-fatigue-dashboard/'
 
@@ -205,9 +205,11 @@ def run_gui():
             payload = service['control'].store.payload()
             labels = {'closed':'已关闭', 'streaming':'正在接收真实脑电', 'waiting':'等待设备数据', 'disconnected':'串口连接失败，正在重试'}
             status_var.set(f"{port_var.get()} · {labels.get(payload['connection_status'], payload['connection_status'])}")
-            if payload['has_data']:
-                candidate = payload['candidate_inference']
-                detail_var.set(candidate.get('message', ''))
+            candidate = payload['candidate_inference']
+            if payload['has_data'] or candidate.get('display_stale'):
+                score = candidate.get('drowsy_model_score')
+                detail_var.set(f"{round(score*100)} / 100 · {candidate.get('message', '')}"
+                               if score is not None else candidate.get('message', ''))
                 count = min(12, max(0, candidate.get('reference_windows', 0)))
                 percent = round(count / 12 * 100)
                 progress_var.set(percent)
