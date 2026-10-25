@@ -10,16 +10,36 @@ import numpy as np
 from scipy.special import expit
 from signal_processing50 import filter_bank as _filter
 from riemann_twochannel import cov,features,expm,logm
+from personal_score import PersonalScoreProfile
 MODEL=Path(__file__).resolve().parent / 'models' / 'sadt-fatigue-v1' / 'model.npz'
 
 class LiveFatigueInference:
- def __init__(self,model_path=MODEL,reference_path=None):
+ def __init__(self,model_path=MODEL,reference_path=None,personal_profile_path=None,use_personal=False):
   self.model=np.load(model_path,allow_pickle=False) if Path(model_path).exists() else None
   self.model_fingerprint=hashlib.sha256(Path(model_path).read_bytes()).hexdigest() if self.model is not None else ''
   self.reference_path=Path(reference_path) if reference_path else None
   self.reference_cache_error=None
+  self.personal_profile=None;self.use_personal=bool(use_personal)
   self.reset()
   self.load_reference()
+  if personal_profile_path and Path(personal_profile_path).exists():
+   try:self.personal_profile=PersonalScoreProfile(personal_profile_path,self.model_fingerprint)
+   except (OSError,ValueError,KeyError,TypeError) as error:
+    logging.warning('Personal score profile not loaded: %s',error)
+
+ @property
+ def personal_profile_available(self):
+  return self.personal_profile is not None and self.personal_profile.compatible(self.center,self.reference_scale)
+
+ @property
+ def personal_mode(self):return self.use_personal and self.personal_profile_available
+
+ def set_personal_mode(self,enabled):
+  if enabled and not self.personal_profile_available:
+   raise RuntimeError('没有与当前模型及个人参考匹配的个人适配参数')
+  self.use_personal=bool(enabled)
+  self.last_valid_result=None;self.last_prediction_index=-1
+  self.set_result('waiting_for_data','模式已切换，等待新的有效判定')
 
  def load_reference(self):
   if not self.reference_path or not self.reference_path.exists():return False
@@ -64,6 +84,7 @@ class LiveFatigueInference:
    logging.warning('Reference cache not saved: %s',error)
 
  def recalibrate(self):
+  self.use_personal=False
   self.reset()
   if self.reference_path:
    try:self.reference_path.unlink(missing_ok=True);self.reference_cache_error=None
@@ -87,7 +108,8 @@ class LiveFatigueInference:
 
  def set_result(self,status,message,**extra):
   self.result=dict(status=status,ready=status=='fatigue_inference',message=message,
-    model='SADT Fp1/Fp2 黎曼疲劳分类 v1',output_meaning='SADT反应行为标签训练的疲劳倾向分类',
+    model=('个人适配疲劳分类 v1（试验）' if self.personal_mode else 'SADT Fp1/Fp2 黎曼疲劳分类 v1'),
+    output_meaning=('基于本机两轮开发记录的个人相对频带分类分数' if self.personal_mode else 'SADT反应行为标签训练的疲劳倾向分类'),
     hardware_validated=False,probability_calibrated=False,progress_percent=0,**extra)
   if status=='fatigue_inference':
    self.result['prediction_timestamp']=self.last_time
@@ -158,10 +180,16 @@ class LiveFatigueInference:
   z=(feat-self.model['mean'])/self.model['scale']
   if not np.isfinite(z).all() or np.max(np.abs(z))>8:
    self.set_result('out_of_distribution','脑电特征超出训练参考范围，暂不判定');return
-  score=float(expit(z@self.model['coef']+self.model['intercept']))
+  generic_score=float(expit(z@self.model['coef']+self.model['intercept']))
+  score=generic_score
+  if self.personal_mode:
+   try:score=self.personal_profile.predict(C)
+   except ValueError:
+    self.set_result('out_of_distribution','个人特征超出开发参考范围，等待有效信号');return
   tendency='drowsy' if score>=.6 else 'alert' if score<=.4 else 'uncertain'
   label={'drowsy':'倾向疲劳','alert':'倾向清醒','uncertain':'暂不确定'}[tendency]
-  self.set_result('fatigue_inference',label,drowsy_model_score=score,predicted_class='drowsy' if score>=.5 else 'alert',
+  self.set_result('fatigue_inference',label,drowsy_model_score=score,generic_model_score=generic_score,
+   predicted_class='drowsy' if score>=.5 else 'alert',
    fatigue_tendency=tendency,elapsed_seconds=round(elapsed,1),estimated_stream_rate_hz=round(rate,2),missing_sequence_frames=window_missing,lifetime_missing_sequence_frames=self.missing,
    wear_code=packet.get('wear_code'),reference='12 non-overlapping quality-approved 4s epochs; persisted personal reference; manually replaceable; not verified alert',sequence_modulus_assumption=256)
   self.result['progress_percent']=100
@@ -171,6 +199,9 @@ class LiveFatigueInference:
   if status is not None:result.update(status=status,ready=False,message=message)
   count=len(self.reference_epochs)
   result.update(reference_windows=count,reference_ready=self.center is not None,
+    model_mode='personal_experimental' if self.personal_mode else 'generic',
+    personal_profile_available=self.personal_profile_available,
+    personal_profile_fingerprint=self.personal_profile.fingerprint if self.personal_profile else None,
     reference_loaded=self.reference_loaded,reference_saved_at=self.reference_saved_at,
     reference_cache_error=self.reference_cache_error,
     last_prediction_timestamp=(self.last_valid_result.get('prediction_timestamp') if self.last_valid_result else None),

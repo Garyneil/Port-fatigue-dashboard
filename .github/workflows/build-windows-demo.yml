@@ -11,6 +11,7 @@ on:
       - 'interface/live_fatigue_inference50.py'
       - 'interface/signal_processing50.py'
       - 'interface/riemann_twochannel.py'
+      - 'interface/personal_score.py'
       - 'interface/models/**'
       - 'interface/requirements-demo.txt'
       - 'scripts/build_windows.py'

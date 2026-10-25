@@ -89,6 +89,7 @@
               <small id="interfaceHint">真实模式读取设备接口；仿真模式暂停接口读取</small>
             </form>
             <div class="interface-controls" style="margin-top:10px"><button id="serialToggle" type="button" disabled>检查串口状态…</button><button id="recalibrateButton" type="button" disabled>重新校准</button><small id="serialStatus" role="status" aria-live="polite">正在连接本机串口服务</small></div>
+            <div class="interface-controls"><label><input id="personalMode" type="checkbox" disabled> 个人适配（试验）</label><small id="personalModeStatus">通用模型</small></div>
           </div>
           <div class="gauge-row">
             <div class="risk-gauge" id="riskGauge" style="--risk:0">
@@ -102,7 +103,7 @@
           </div>
 
           <div class="candidate-card" aria-live="polite">
-            <div><strong>SADT 双通道疲劳分类</strong><span id="candidateState">等待头环数据</span></div>
+            <div><strong id="candidateModelTitle">SADT 双通道疲劳分类</strong><span id="candidateState">等待头环数据</span></div>
             <b id="candidateValue">--</b>
             <small id="candidateNote">SADT 清醒／困倦行为标签训练 · 显示分类模型分数。</small>
           </div>
@@ -119,7 +120,7 @@
             <div><span class="section-index">03</span><div><h2 id="manifold-title">模型验证与判定说明</h2><p>SADT · SUBJECT-HELD-OUT VALIDATION</p></div></div>
           </div>
 
-          <div class="candidate-card"><div><strong>按被试独立验证 · 20 人 / 6,939 个窗口</strong><span>平均平衡准确率 73.8% · 平均 AUC 0.817</span></div><small>Fp1/Fp2 分频带协方差 → 黎曼切空间 → 逻辑回归。验证仅覆盖清醒和困倦两端样本。</small></div>
+          <div class="candidate-card"><div><strong>通用模型公开数据验证 · 20 人 / 6,939 个窗口</strong><span>平均平衡准确率 73.8% · 平均 AUC 0.817</span></div><small>按被试独立验证。Fp1/Fp2 分频带协方差 → 黎曼切空间 → 逻辑回归。仅覆盖清醒和困倦两端样本。</small></div>
           <div class="candidate-card"><div><strong>公开脑电回放验证 · 非当前头环数据</strong><span id="replayVerification">正在读取实际推理记录…</span></div><small>使用未参与训练的被试原始脑电，经过预处理、协方差、切空间和分类器完成回放。</small></div>
           <div class="chart-wrap" hidden>
             <svg id="manifoldChart" viewBox="0 0 520 270" role="img" aria-label="疲劳风险分数与流形速度构成的风险分区图">

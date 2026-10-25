@@ -47,7 +47,7 @@ def parse_line(line):
 
 
 class Store:
-    def __init__(self, wear_ok=None, reference_path=None):
+    def __init__(self, wear_ok=None, reference_path=None, personal_profile_path=None, use_personal=False):
         self.lock = threading.Lock()
         self.latest = None
         self.received = 0
@@ -60,7 +60,14 @@ class Store:
         self.session = uuid.uuid4().hex
         self.monitor_started = None
         self.monitor_stopped = None
-        self.inference = LiveHeadsetInference(reference_path=reference_path) if LiveHeadsetInference else None
+        self.inference = LiveHeadsetInference(reference_path=reference_path,
+            personal_profile_path=personal_profile_path,use_personal=use_personal) if LiveHeadsetInference else None
+
+    def set_personal_mode(self, enabled):
+        with self.lock:
+            if not self.inference:
+                raise RuntimeError('Model unavailable')
+            self.inference.set_personal_mode(enabled)
 
     def recalibrate(self):
         with self.lock:
@@ -181,7 +188,10 @@ class SerialControl:
             return self._state()
 
     def _state(self):
+        candidate = self.store.payload()['candidate_inference']
         return dict(enabled=self.enabled, port=self.args.port,
+                    model_mode=candidate.get('model_mode','generic'),
+                    personal_profile_available=candidate.get('personal_profile_available',False),
                     connection_status=self.store.payload()['connection_status'])
 
     def set_enabled(self, enabled):
@@ -256,10 +266,15 @@ class ControlHandler(Handler):
         if self.headers.get('X-Serial-Control') != '1' or (origin and origin != 'http://' + self.headers.get('Host', '')):
             self.reply(403, {'error': 'Same-origin control required'})
             return
-        if self.path not in ('/api/serial/open', '/api/serial/close', '/api/model/recalibrate'):
+        if self.path not in ('/api/serial/open', '/api/serial/close', '/api/model/recalibrate',
+                             '/api/model/personal/enable', '/api/model/personal/disable'):
             self.reply(404, {'error': 'Unknown action'})
             return
         try:
+            if self.path.startswith('/api/model/personal/'):
+                self.store.set_personal_mode(self.path.endswith('/enable'))
+                self.reply(200,self.control.state())
+                return
             self.reply(200, self.store.recalibrate() if self.path == '/api/model/recalibrate'
                        else self.control.set_enabled(self.path.endswith('/open')))
         except RuntimeError as error:
@@ -274,7 +289,8 @@ class ControlHandler(Handler):
 
 def create_server(args):
     """Create a stopped local service; the launcher owns startup and cleanup."""
-    store = Store(args.wear_ok_code, getattr(args, 'reference_path', None))
+    store = Store(args.wear_ok_code, getattr(args, 'reference_path', None),
+                  getattr(args,'personal_profile_path',None),getattr(args,'use_personal',False))
     control = SerialControl(args, store)
     handler = type('SessionHandler', (ControlHandler,), {'store': store, 'control': control})
     root = (Path(sys._MEIPASS) if getattr(sys, 'frozen', False)

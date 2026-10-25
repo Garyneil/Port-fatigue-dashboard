@@ -9,7 +9,7 @@ import sys
 import threading
 import webbrowser
 
-VERSION = '0.1.4'
+VERSION = '0.1.5'
 RELEASES_URL = 'https://github.com/Garyneil/Port-fatigue-dashboard/releases/latest'
 ONLINE_URL = 'https://garyneil.github.io/Port-fatigue-dashboard/'
 
@@ -51,6 +51,21 @@ def self_test(output):
     restored = LiveFatigueInference(reference_path=model.reference_path)
     assert restored.snapshot()['reference_loaded']
     assert np.allclose(restored.center, model.center)
+    from personal_score import PersonalScoreProfile, reference_signature
+    profile_path = Path(output).with_name('synthetic-personal-self-test.json')
+    profile_path.write_text(json.dumps(dict(schema=1,method='log_relative_band_v1',
+        input_source='device_filtered',model_fingerprint=model.model_fingerprint,
+        reference_signature=reference_signature(restored.center,restored.reference_scale),
+        mean=[0,0],scale=[1,1],coef=[0,0],intercept=0,max_standardized_feature=4)),encoding='utf-8')
+    try:
+        adapted = LiveFatigueInference(reference_path=model.reference_path,
+            personal_profile_path=profile_path,use_personal=True)
+        assert adapted.personal_mode
+        assert adapted.personal_profile.predict(np.array([np.eye(2)*v for v in (10,4,2)])) == .5
+        adapted.set_personal_mode(False)
+        assert adapted.snapshot()['model_mode'] == 'generic'
+    finally:
+        profile_path.unlink(missing_ok=True)
     restored.recalibrate()
     assert not model.reference_path.exists()
     server, control = create_server(Namespace(port='TEST-NO-DEVICE', baudrate=115200,
@@ -75,7 +90,8 @@ def self_test(output):
             assert reference['reference_ready'] is False
         result = dict(version=VERSION, passed=True, model_loaded=True,
             synthetic_numeric_check_score=score, synthetic_stream_status=model.snapshot()['status'],
-            http_and_assets=True, reference_cache_roundtrip=True, no_device_data_fabricated=True)
+            http_and_assets=True, reference_cache_roundtrip=True, personal_profile_roundtrip=True,
+            no_device_data_fabricated=True)
         Path(output).write_text(json.dumps(result, indent=2), encoding='utf-8')
     finally:
         server.shutdown()
@@ -122,6 +138,7 @@ def run_gui():
     detail_var = tk.StringVar(value='首次连续采集约 1 分钟建立参考，信号合格后显示疲劳倾向。')
     progress_var = tk.DoubleVar(value=0)
     progress_text = tk.StringVar(value='0 / 12 · 0%')
+    personal_var = tk.BooleanVar(value=False)
     service = {'server':None, 'control':None, 'worker':None, 'url':None}
 
     def refresh_ports():
@@ -136,6 +153,17 @@ def run_gui():
             detail_var.set('；'.join(f'{p.device} · {p.description}' for p in ports))
 
     ttk.Button(row, text='刷新', command=refresh_ports).pack(side='left', padx=(8, 0))
+    def toggle_personal():
+        if service['control']:
+            try:
+                service['control'].store.set_personal_mode(personal_var.get())
+            except RuntimeError as error:
+                personal_var.set(False)
+                messagebox.showinfo('个人适配暂不可用', str(error))
+    personal_check = ttk.Checkbutton(row, text='个人适配（试验）', variable=personal_var, command=toggle_personal)
+    personal_check.pack(side='left', padx=(10,0))
+    if not (data_dir / 'personal-score-profile-v1.json').exists():
+        personal_check.configure(state='disabled')
     buttons = ttk.Frame(frame)
     buttons.pack(fill='x', pady=(20, 16))
 
@@ -175,7 +203,9 @@ def run_gui():
             # Let Windows allocate an available port, avoiding conflicts with old services.
             server, control = create_server(Namespace(port=port, baudrate=115200,
                 wear_ok_code=None, host='127.0.0.1', http_port=0,
-                reference_path=data_dir / 'personal-reference-v1.npz'))
+                reference_path=data_dir / 'personal-reference-v1.npz',
+                personal_profile_path=data_dir / 'personal-score-profile-v1.json',
+                use_personal=personal_var.get()))
             worker = threading.Thread(target=server.serve_forever, daemon=True)
             worker.start()
             control.set_enabled(True)
@@ -204,6 +234,7 @@ def run_gui():
     def recalibrate():
         if service['control']:
             service['control'].store.recalibrate()
+            personal_var.set(False)
             progress_var.set(0)
             progress_text.set('0 / 12 · 0%')
             detail_var.set('重新校准已开始，正在采集新的个人参考。')
@@ -230,9 +261,12 @@ def run_gui():
             labels = {'closed':'已关闭', 'streaming':'正在接收真实脑电', 'waiting':'等待设备数据', 'disconnected':'串口连接失败，正在重试'}
             status_var.set(f"{port_var.get()} · {labels.get(payload['connection_status'], payload['connection_status'])}")
             candidate = payload['candidate_inference']
+            personal_check.configure(state='normal' if candidate.get('personal_profile_available') else 'disabled')
+            personal_var.set(candidate.get('model_mode') == 'personal_experimental')
             if payload['has_data'] or candidate.get('display_stale') or candidate.get('reference_ready'):
                 score = candidate.get('drowsy_model_score')
-                detail_var.set(f"{round(score*100)} / 100 · {candidate.get('message', '')}"
+                mode_label = '个人适配 · ' if candidate.get('model_mode') == 'personal_experimental' else '通用模型 · '
+                detail_var.set(f"{mode_label}{round(score*100)} / 100 · {candidate.get('message', '')}"
                                if score is not None else candidate.get('message', ''))
                 count = min(12, max(0, candidate.get('reference_windows', 0)))
                 percent = round(count / 12 * 100)

@@ -19,11 +19,14 @@
     if (!candidate) return;
     const status = candidate.status;
     if (candidate.model?.includes('疲劳分类')) {
+      $('candidateModelTitle').textContent = candidate.model_mode === 'personal_experimental' ? '个人适配疲劳分类（试验）' : 'SADT 双通道疲劳分类';
       const active = (status === 'fatigue_inference' || candidate.display_stale === true) && number(candidate.drowsy_model_score) != null;
       const label = {drowsy:'倾向疲劳',alert:'倾向清醒',uncertain:'暂不确定'}[candidate.fatigue_tendency];
       $('candidateState').textContent = active ? `${label}${candidate.display_stale ? ' · 显示上次结果' : ''}` : status === 'calibrating' && !candidate.reference_ready ? `初始参考采集中 · 剩余 ${candidate.remaining_seconds ?? '--'} 秒` : candidate.message || '等待头环数据';
       $('candidateValue').textContent = active ? `${Math.round(candidate.drowsy_model_score*100)} / 100` : '--';
-      $('candidateNote').textContent = 'SADT 清醒/困倦行为标签训练 · 显示分类模型分数。';
+      $('candidateNote').textContent = candidate.model_mode === 'personal_experimental'
+        ? '个人适配试验分数 · 待新场次检验；下方公开数据指标属于通用模型。'
+        : 'SADT 清醒/困倦行为标签训练 · 显示分类模型分数。';
       return;
     }
     const labels = {waiting_for_data:'等待头环数据',calibrating:`个体基线校准中 · ${candidate.remaining_seconds ?? '--'} 秒`,candidate_inference:'候选模型正在运行',rate_out_of_range:'采样帧率不匹配 · 暂停输出',packet_loss:'数据缺帧较多 · 暂停输出',model_missing:'未找到模型文件',model_unavailable:'候选模型未加载'};
@@ -105,7 +108,7 @@
     const score = active ? number(candidate.drowsy_model_score) : null;
     const label = {drowsy:'倾向疲劳',alert:'倾向清醒',uncertain:'暂不确定'}[candidate?.fatigue_tendency];
     $('riskAdvice').textContent = candidate?.display_stale ? candidate.message
-      : active ? 'SADT 双通道分类器 · 头环实验性结果' : candidate?.message || '等待疲劳分类结果';
+      : active ? candidate.model_mode === 'personal_experimental' ? '个人适配模型 · 试验模式' : 'SADT 双通道分类器 · 头环实验性结果' : candidate?.message || '等待疲劳分类结果';
     $('riskScore').textContent = score == null ? '--' : Math.round(score*100);
     $('riskLabel').textContent = active ? label : '等待判定';
     const color = candidate?.fatigue_tendency === 'drowsy' ? '#ffb74d' : candidate?.fatigue_tendency === 'alert' ? '#36e0d0' : '#7693a3';

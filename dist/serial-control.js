@@ -2,6 +2,8 @@
   const button = document.getElementById('serialToggle');
   const label = document.getElementById('serialStatus');
   const recalibrate = document.getElementById('recalibrateButton');
+  const personal = document.getElementById('personalMode');
+  const personalStatus = document.getElementById('personalModeStatus');
   if (!['127.0.0.1','localhost','[::1]'].includes(location.hostname)) {
     button.textContent = '真实设备请使用本地包';
     label.textContent = '下载并启动 Windows 演示包后，可连接头环。';
@@ -13,6 +15,9 @@
     button.textContent = enabled ? '关闭串口' : '打开串口';
     button.disabled = false;
     recalibrate.disabled = !enabled;
+    personal.disabled = !data.personal_profile_available;
+    personal.checked = data.model_mode === 'personal_experimental';
+    personalStatus.textContent = personal.checked ? '个人适配已启用' : data.personal_profile_available ? '通用模型 · 可切换个人适配' : '通用模型 · 本机暂无匹配的个人参数';
     const status = {closed:'已关闭，可供其他软件使用', streaming:'正在接收数据', waiting:'正在连接／等待数据', disconnected:'连接失败，正在重试（可关闭）'};
     label.textContent = `${data.port} · ${status[data.connection_status] || data.connection_status}`;
   }
@@ -26,6 +31,7 @@
     } catch (_) {
       button.disabled = true; button.textContent = '串口控制不可用';
       recalibrate.disabled = true;
+      personal.disabled = true;
       label.textContent = '请使用本机头环服务打开此页面';
     } finally { busy = false; }
   }
@@ -60,6 +66,19 @@
       busy = false;
       recalibrate.disabled = !enabled;
     }
+  });
+  personal.addEventListener('change', async () => {
+    if (busy) return;
+    busy = true; personal.disabled = true;
+    try {
+      const response = await fetch(`/api/model/personal/${personal.checked ? 'enable' : 'disable'}`, {
+        method:'POST', headers:{'X-Serial-Control':'1'}
+      });
+      if (!response.ok) throw Error();
+      render(await response.json());
+    } catch (_) {
+      personalStatus.textContent = '切换失败，请检查本机个人参数与参考是否匹配。';
+    } finally { busy = false; }
   });
   refresh(); setInterval(refresh,1000);
 })();
